@@ -5,7 +5,9 @@ CREATE TABLE places (
 CREATE TABLE questions (
     id SERIAL PRIMARY KEY,
     chat_id INTEGER,
-    question VARCHAR(255)
+    name VARCHAR(255),
+    question VARCHAR(255),
+    answer VARCHAR(255)
 );
 
 CREATE TABLE common_questions (
