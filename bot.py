@@ -6,12 +6,14 @@ from aiogram import Bot, Dispatcher
 
 #Из пакетов проекта
 from app.config import bot_token, public_bot_token
-from app.handlers import router, set_commands_list_private
+from app.handlers import router, set_commands_list_private, set_bot_2
 from app.public_handlers import public_router, set_commands_list_public
 from app.db import Conn, shutdown_db
 
 bot = Bot(token=bot_token)
 public_bot = Bot(token=public_bot_token)
+
+set_bot_2(public_bot)
 
 dp = Dispatcher()
 public_dp = Dispatcher()

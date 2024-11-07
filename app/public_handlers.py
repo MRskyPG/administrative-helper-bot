@@ -8,7 +8,9 @@ public_router = Router()
 
 async def set_commands_list_public(bot):
     commands = [
-        BotCommand(command="/start", description="Запуск бота")
+        BotCommand(command="/start", description="Запуск бота"),
+        BotCommand(command="/getplace", description="Информация о местонахождении преподавателя"),
+        BotCommand(command="/ask", description="Задать вопрос (ваш вопрос идет после команды)")
     ]
     await bot.set_my_commands(commands)
 
