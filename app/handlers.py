@@ -1,7 +1,9 @@
 from aiogram import F, Router
 from aiogram.filters.command import Command, CommandObject
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
-
+from aiogram.filters import StateFilter
+from aiogram.fsm.context import FSMContext
+from aiogram.fsm.state import StatesGroup, State
 
 
 import app.db
@@ -31,7 +33,8 @@ async def set_commands_list_private(bot):
 
 # Хэндлер на команду /start
 @router.message(Command("start"))
-async def cmd_start(message: Message):
+async def cmd_start(message: Message, state: FSMContext):
+    await state.clear()
     await message.answer(f'Привет, {message.from_user.full_name}! Здесь мы зададим твое местоположение.')
 
 # Хэндлер на команду /setplace
@@ -60,6 +63,7 @@ async def cmd_ask(message: Message):
 # Хэндлер на команду /staffquestions
 @router.message(Command("staffquestions"))
 async def cmd_get_staff_questions(message: Message):
+    #поля id, chat_id, name, question
     questions = app.db.get_staff_questions()
 
     # info = ""
@@ -70,19 +74,19 @@ async def cmd_get_staff_questions(message: Message):
 
     for question in questions:
         #Добавляем кнопку, по которой мы ответим нужному пользователю по id
-        button = InlineKeyboardButton(text=question['question'], callback_data=f"answer_{question['id']}")
+        button = InlineKeyboardButton(text=question[3], callback_data=f"answer_{question[1]}")
         keyboard.add(button)
 
     await message.reply("Выберите вопрос:", reply_markup=keyboard)
 
-@router.callback_query(F.data.startswith('answer_'))
-async def staff_answer(callback_query: types.CallbackQuery):
-
-    question_id = callback_query.data.split('_')[1]
-
-    question = await get_question_by_id(question_id)  # Функция для получения вопроса из БД
-    await bot.send_message(callback_query.from_user.id, f"Вопрос: {question['question']}\nОтвет: {question['answer']}")
-    await bot.answer_callback_query(callback_query.id)
+# @router.callback_query(F.data.startswith('answer_'))
+# async def staff_answer(callback_query: types.CallbackQuery):
+#
+#     question_id = callback_query.data.split('_')[1]
+#
+#     question = await get_question_by_id(question_id)  # Функция для получения вопроса из БД
+#     await bot.send_message(callback_query.from_user.id, f"Вопрос: {question['question']}\nОтвет: {question['answer']}")
+#     await bot.answer_callback_query(callback_query.id)
 
 
 @router.callback_query(F.data.startswith("q_"))

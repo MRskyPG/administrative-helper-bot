@@ -58,10 +58,10 @@ def add_staff_question(question: str, chat_id: int, full_name):
     Conn.commit()
     cursor.close()
 
-def get_staff_questions() -> list[tuple[int, int, str]]:
+def get_staff_questions() -> list[tuple[int, int, str, str]]:
     global Conn
     cursor = Conn.cursor()
-    cursor.execute("SELECT id, name, question FROM questions")
+    cursor.execute("SELECT id, chat_id, name, question FROM questions")
     #Одна запись о месте
     questions = cursor.fetchall()
 
