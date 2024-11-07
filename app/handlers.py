@@ -66,27 +66,15 @@ async def cmd_get_staff_questions(message: Message):
     #поля id, chat_id, name, question
     questions = app.db.get_staff_questions()
 
-    # info = ""
-    # for q in questions:
-    #     info += f"\nВопрос {q[0]} от {q[1]}: {q[2]}\n"
-    # await message.answer(f'Вопросы:\n{info}')
-    keyboard = InlineKeyboardMarkup()
+    buttons = []
 
     for question in questions:
         #Добавляем кнопку, по которой мы ответим нужному пользователю по id
-        button = InlineKeyboardButton(text=question[3], callback_data=f"answer_{question[1]}")
-        keyboard.add(button)
+        button = [InlineKeyboardButton(text=question[3], callback_data=f"answer_{question[1]}")]
+        buttons.append(button)
 
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     await message.reply("Выберите вопрос:", reply_markup=keyboard)
-
-# @router.callback_query(F.data.startswith('answer_'))
-# async def staff_answer(callback_query: types.CallbackQuery):
-#
-#     question_id = callback_query.data.split('_')[1]
-#
-#     question = await get_question_by_id(question_id)  # Функция для получения вопроса из БД
-#     await bot.send_message(callback_query.from_user.id, f"Вопрос: {question['question']}\nОтвет: {question['answer']}")
-#     await bot.answer_callback_query(callback_query.id)
 
 
 @router.callback_query(F.data.startswith("q_"))
