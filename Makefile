@@ -9,7 +9,7 @@ run:
 stop_db:
 	 docker stop db-avrunev
 run_db:
-	 docker run -it db-avrunev
+	 docker start db-avrunev
 del_image:
 	 docker rmi db-avrunev-image
 del_cont:

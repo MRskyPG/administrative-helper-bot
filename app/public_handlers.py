@@ -24,6 +24,17 @@ async def cmd_get_place(message: Message):
     await message.answer(f'Информация о местонахождении О.Е.Аврунева: {place}')
 
 
+# Хэндлер на команду /ask
+@public_router.message(Command("ask"))
+async def cmd_ask(message: Message, command: CommandObject):
+    if command.args is None:
+        await message.answer("Не были введены аргументы\nПример: /ask your question?")
+        return
+    data = command.args
+
+    app.db.add_staff_question(data, message.from_user.id, message.from_user.full_name)
+    await message.reply("Вопрос отправлен! Ожидайте ответа.")
+
 @public_router.message(F.content_type.in_({'text', 'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
 async def any_message(message: Message):
     await message.answer("Неизвестная команда. Попробуйте /start")

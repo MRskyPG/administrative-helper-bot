@@ -3,6 +3,7 @@ from aiogram.filters.command import Command, CommandObject
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, BotCommand
 
 
+
 import app.db
 
 router = Router()
@@ -37,7 +38,7 @@ async def cmd_start(message: Message):
 @router.message(Command("setplace"))
 async def cmd_set_my_place(message: Message, command: CommandObject):
     if command.args is None:
-        await message.answer("Не были введены аргументы\nПример: /setplace <description_of_your_place>")
+        await message.answer("Не были введены аргументы\nПример: /setplace description of your place")
         return
     data = command.args
 
@@ -56,7 +57,32 @@ async def cmd_ask(message: Message):
    await message.answer("Выберите ваш вопрос:", reply_markup=get_question_keyboard())
 
 
+# Хэндлер на команду /staffquestions
+@router.message(Command("staffquestions"))
+async def cmd_get_staff_questions(message: Message):
+    questions = app.db.get_staff_questions()
 
+    # info = ""
+    # for q in questions:
+    #     info += f"\nВопрос {q[0]} от {q[1]}: {q[2]}\n"
+    # await message.answer(f'Вопросы:\n{info}')
+    keyboard = InlineKeyboardMarkup()
+
+    for question in questions:
+        #Добавляем кнопку, по которой мы ответим нужному пользователю по id
+        button = InlineKeyboardButton(text=question['question'], callback_data=f"answer_{question['id']}")
+        keyboard.add(button)
+
+    await message.reply("Выберите вопрос:", reply_markup=keyboard)
+
+@router.callback_query(F.data.startswith('answer_'))
+async def staff_answer(callback_query: types.CallbackQuery):
+
+    question_id = callback_query.data.split('_')[1]
+
+    question = await get_question_by_id(question_id)  # Функция для получения вопроса из БД
+    await bot.send_message(callback_query.from_user.id, f"Вопрос: {question['question']}\nОтвет: {question['answer']}")
+    await bot.answer_callback_query(callback_query.id)
 
 
 @router.callback_query(F.data.startswith("q_"))
@@ -67,6 +93,7 @@ async def callbacks_questions(callback: CallbackQuery):
     elif action == "2":
         await update_ask_text(callback.message, "Ответ 2")
     await callback.answer()
+
 
 
 @router.message(F.content_type.in_({'text', 'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
