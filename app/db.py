@@ -1,3 +1,4 @@
+from typing import List
 import psycopg2
 import sys
 from app.config import postgres_user, postgres_password, postgres_database
@@ -58,7 +59,7 @@ def add_staff_question(question: str, chat_id: int, full_name):
     Conn.commit()
     cursor.close()
 
-def get_staff_questions() -> list[tuple[int, int, str, str]]:
+def get_staff_questions() -> List[tuple[int, int, str, str]]:
     global Conn
     cursor = Conn.cursor()
     cursor.execute("SELECT id, chat_id, name, question FROM questions")
@@ -144,7 +145,7 @@ def get_common_question_answer_by_id(id: int):
     else:
         raise ValueError(f"No question found for question ID: {id}")
 
-def get_common_questions() -> list[tuple[int, str, str]]:
+def get_common_questions() -> List[tuple[int, str, str]]:
     global Conn
     cursor = Conn.cursor()
     cursor.execute("SELECT id, question, answer FROM common_questions")

@@ -1,3 +1,4 @@
+from typing import List
 import aiogram
 from aiogram import F, Router
 from aiogram.filters.command import Command, CommandObject
@@ -37,7 +38,7 @@ def set_bot_2(bot):
     bot_2 = bot
 
 
-def make_row_keyboard(items: list[str]) -> ReplyKeyboardMarkup:
+def make_row_keyboard(items: List[str]) -> ReplyKeyboardMarkup:
     """
     Создаёт реплай-клавиатуру с кнопками в один ряд
     :param items: список текстов для кнопок
