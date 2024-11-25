@@ -76,14 +76,9 @@ async def cmd_start(message: Message, state: FSMContext):
 # Хэндлер на команду /setplace
 @router.message(StateFilter(None), Command("setplace"))
 async def cmd_set_my_place(message: Message, state: FSMContext):
-    # if command.args is None:
-    #     await message.answer("Не были введены аргументы\nПример: /setplace description of your place")
-    #     return
-    # data = command.args
     await message.answer("Введите ваше место, которое хотите задать. Для отмены - /cancel")
     await state.set_state(GetPlace.waitingPlaces)
-    #app.db.set_place(data)
-    #await message.reply("Место обновлено!")
+
 
 
 @router.message(GetPlace.waitingPlaces, F.content_type.in_({'text'}), F.text[0] != "/")
