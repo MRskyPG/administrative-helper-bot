@@ -67,17 +67,6 @@ def get_staff_questions() -> list[tuple[int, int, str, str]]:
 
     return questions
 
-# def add_staff_answer(answer: str, chat_id: int):
-#     global Conn
-#     #TODO: проверка на sql атаки
-#     cursor = Conn.cursor()
-#     canswer = escape_string(answer)
-#
-#     cursor.execute("INSERT INTO questions(answer) VALUES(%s) WHERE chat_id=%s", (canswer, chat_id, ))
-#     # Зафиксировать изменение
-#     Conn.commit()
-#     cursor.close()
-
 
 def update_answer_by_id(answer: str, id: int):
     global Conn
@@ -126,13 +115,6 @@ def delete_question_by_id(id: int):
     # Зафиксировать изменение
     Conn.commit()
     cursor.close()
-
-
-#TODO: ответ на вопрос стаффа добавить
-# 1.insert answer в questions по нужному ид чат ид из приватного
-# 2. Отправка публичным ботом ответа по нужному чат ид (public_bot.send_message(...))
-# 3. Удаление вопроса из таблицы
-
 
 #-------------------------------------------------------------------------
 
