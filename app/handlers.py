@@ -261,7 +261,7 @@ async def get_new_common_question(message: Message, state: FSMContext):
         await message.answer("Вопрос был обновлен. Список общих вопросов и ответов - /ask")
         await state.clear()
     else:
-        message.answer("Слишком короткий вопрос. Попробуйте еще раз")
+        await message.answer("Слишком короткий вопрос. Попробуйте еще раз")
 
 
 # При ошибочном типе сообщения нового вопроса
@@ -295,7 +295,7 @@ async def get_new_common_answer(message: Message, state: FSMContext):
         await message.answer("Ответ был обновлен. Список общих вопросов и ответов - /ask")
         await state.clear()
     else:
-        message.answer("Слишком короткий ответ. Попробуйте еще раз")
+        await message.answer("Слишком короткий ответ. Попробуйте еще раз")
 
 
 # При ошибочном типе сообщения нового ответа
