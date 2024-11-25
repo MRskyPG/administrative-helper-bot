@@ -37,7 +37,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    print("Bot were started.")
+    print("Bots were started.")
     try:
         # Запуск бота
         asyncio.run(main())

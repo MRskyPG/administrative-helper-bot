@@ -21,9 +21,15 @@ class DoAnswer(StatesGroup):
     getting_answer = State()
     confirmation = State()
 
+
+class GetPlace(StatesGroup):
+    waitingPlaces = State()
+
+
 def set_bot_2(bot):
     global bot_2
     bot_2 = bot
+
 
 def make_row_keyboard(items: list[str]) -> ReplyKeyboardMarkup:
     """
@@ -34,6 +40,7 @@ def make_row_keyboard(items: list[str]) -> ReplyKeyboardMarkup:
     row = [KeyboardButton(text=item) for item in items]
     return ReplyKeyboardMarkup(keyboard=[row], resize_keyboard=True)
 
+
 # Кнопки для команды /ask
 def get_question_keyboard():
     buttons = [
@@ -43,18 +50,21 @@ def get_question_keyboard():
     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
     return keyboard
 
+
 async def update_ask_text(message: Message, answer: str):
     await message.edit_text(text=f"{answer}", reply_markup=get_question_keyboard())
+
 
 async def set_commands_list_private(bot):
     commands = [
         BotCommand(command="/start", description="Запуск бота"),
-        BotCommand(command="/setplace", description="Задать ваше место (ваш текст места идет после команды)."),
-        BotCommand(command="/getplace", description="Получить сведения о заданном ранее месте."),
+        BotCommand(command="/setplace", description="Задать ваше место"),
+        BotCommand(command="/getplace", description="Получить сведения о заданном ранее месте"),
         BotCommand(command="/ask", description="Список общих вопросов/ответов"),
         BotCommand(command="/staffquestions", description="Посмотреть вопросы сотрудников")
     ]
     await bot.set_my_commands(commands)
+
 
 # Хэндлер на команду /start
 @router.message(Command("start"))
@@ -62,22 +72,41 @@ async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     await message.answer(f'Привет, {message.from_user.full_name}! Здесь мы зададим твое местоположение.', reply_markup=ReplyKeyboardRemove())
 
-# Хэндлер на команду /setplace
-@router.message(Command("setplace"))
-async def cmd_set_my_place(message: Message, command: CommandObject):
-    if command.args is None:
-        await message.answer("Не были введены аргументы\nПример: /setplace description of your place")
-        return
-    data = command.args
 
-    app.db.set_place(data)
-    await message.reply("Место обновлено!")
+# Хэндлер на команду /setplace
+@router.message(StateFilter(None), Command("setplace"))
+async def cmd_set_my_place(message: Message, state: FSMContext):
+    # if command.args is None:
+    #     await message.answer("Не были введены аргументы\nПример: /setplace description of your place")
+    #     return
+    # data = command.args
+    await message.answer("Введите ваше место, которое хотите задать. Для отмены - /cancel")
+    await state.set_state(GetPlace.waitingPlaces)
+    #app.db.set_place(data)
+    #await message.reply("Место обновлено!")
+
+
+@router.message(GetPlace.waitingPlaces, F.content_type.in_({'text'}), F.text[0] != "/")
+async def set_new_place(message: Message, state: FSMContext):
+    if len(message.text) < 5:
+        await message.answer("Попробуйте написать более подробно.")
+    else:
+        place = message.text
+        app.db.set_place(place)
+        await message.reply("Место обновлено!")
+        await state.clear()
+
+@router.message(GetPlace.waitingPlaces, F.content_type.in_({'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
+async def incorrect_set_new_place(message: Message):
+    await message.answer("Напишите текстом!")
+
 
 # Хэндлер на команду /getplace
 @router.message(Command("getplace"))
 async def cmd_get_place(message: Message):
     place = app.db.get_place()
     await message.answer(f'Информация о моем местонахождении: {place}')
+
 
 # Хэндлер на команду /ask
 @router.message(Command("ask"))
@@ -89,7 +118,7 @@ async def cmd_ask(message: Message):
 
 # Хэндлер на команду /staffquestions
 @router.message(StateFilter(None), Command("staffquestions"))
-async def cmd_get_staff_questions(message: Message, state: FSMContext):
+async def cmd_get_staff_questions(message: Message):
     #поля id, chat_id, name, question
     questions = app.db.get_staff_questions()
 
