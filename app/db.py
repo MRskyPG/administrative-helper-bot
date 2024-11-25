@@ -116,6 +116,73 @@ def delete_question_by_id(id: int):
     Conn.commit()
     cursor.close()
 
+#--------------------------------------------------------------------
+
+def add_common_questions(question: str, answer: str):
+    global Conn
+    #TODO: проверка на sql атаки
+    cursor = Conn.cursor()
+    cquestion = escape_string(question)
+    canswer = escape_string(answer)
+
+    cursor.execute("INSERT INTO common_questions(question, answer) VALUES(%s, %s)", (cquestion, canswer, ))
+    # Зафиксировать изменение
+    Conn.commit()
+    cursor.close()
+
+def get_common_question_answer_by_id(id: int):
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("SELECT question, answer FROM common_questions where id=%s", (id,))
+
+    data = cursor.fetchall()
+    cursor.close()
+
+    if data:
+        question, answer = data[0]  # Извлекаем первый элемент (вопрос и ответ)
+        return question, answer
+    else:
+        raise ValueError(f"No question found for question ID: {id}")
+
+def get_common_questions() -> list[tuple[int, str, str]]:
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("SELECT id, question, answer FROM common_questions")
+
+    questions = cursor.fetchall()
+    return questions
+
+def update_common_answer_by_id(answer: str, id: int):
+    global Conn
+
+    cursor = Conn.cursor()
+    canswer = escape_string(answer)
+
+    cursor.execute("UPDATE common_questions SET answer=%s WHERE id=%s", (canswer, id,))
+    # Зафиксировать изменение
+    Conn.commit()
+    cursor.close()
+
+def update_common_question_by_id(question: str, id: int):
+    global Conn
+
+    cursor = Conn.cursor()
+    cquestion = escape_string(question)
+
+    cursor.execute("UPDATE common_questions SET question=%s WHERE id=%s", (cquestion, id,))
+    # Зафиксировать изменение
+    Conn.commit()
+    cursor.close()
+
+def delete_common_questions_by_id(id: int):
+    global Conn
+
+    cursor = Conn.cursor()
+
+    cursor.execute("DELETE FROM common_questions WHERE id=%s", (id,))
+    # Зафиксировать изменение
+    Conn.commit()
+    cursor.close()
 #-------------------------------------------------------------------------
 
 def shutdown_db(conn):

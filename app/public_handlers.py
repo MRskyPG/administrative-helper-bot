@@ -19,6 +19,7 @@ async def set_commands_list_public(bot):
     commands = [
         BotCommand(command="/start", description="Запуск бота"),
         BotCommand(command="/getplace", description="Информация о местонахождении преподавателя"),
+        BotCommand(command="/common_questions", description="Список вопросов/ответов"),
         BotCommand(command="/ask", description="Задать вопрос")
     ]
     await bot.set_my_commands(commands)
@@ -61,6 +62,41 @@ async def incorrect_set_new_place(message: Message):
     await message.answer("Напишите текстом!")
 
 
+@public_router.message(StateFilter(None), Command("common_questions"))
+async def cmd_common(message: Message):
+    common_questions = app.db.get_common_questions()
+
+    if len(common_questions) != 0:
+        buttons = []
+        i = 1
+
+        for data in common_questions:
+            button = [InlineKeyboardButton(text=f"{i}. {data[1]}", callback_data=f"common_{data[0]}")]
+            buttons.append(button)
+            i += 1
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await message.reply("Выберите вопрос:", reply_markup=keyboard)
+
+    else:
+        # TODO: добавить кнопку "добавить вопрос и ответ"
+        await message.answer("Нет общих вопросов и ответов.")
+
+
+@public_router.callback_query(StateFilter(None), F.data.startswith("common_"))
+async def callbacks_common_questions(callback: CallbackQuery):
+    common_questions_id = callback.data.split('_')[1]
+
+    # Получаем вопрос и ответ
+    question, answer = app.db.get_common_question_answer_by_id(common_questions_id)
+
+    text = f"Вопрос: {question}.\n\nОтвет: {answer}"
+
+
+    await callback.message.answer(text)
+    await callback.answer()
+
+
 @public_router.message(StateFilter(None), Command("cancel"))
 async def cmd_cancel_no_state(message: Message, state: FSMContext):
     await state.set_data({})
@@ -80,5 +116,6 @@ async def cmd_cancel(message: Message, state: FSMContext):
 
 @public_router.message(F.content_type.in_({'text', 'sticker', 'photo', 'video', 'audio', 'voice', 'document',
                                            'location', 'contact'}))
-async def any_message(message: Message):
+async def any_message(message: Message, state: FSMContext):
     await message.answer("Неизвестная команда. Попробуйте /start")
+    await state.clear()
