@@ -14,4 +14,7 @@ del_image:
 	 docker rmi db-avrunev-image
 del_cont:
 	 docker rm db-avrunev
-
+backup:
+	 docker exec -t db-avrunev pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DATABASE) --encoding=UTF8 > backup.sql
+recovery:
+	 cat backup.sql | docker exec -i db-avrunev psql -U $(POSTGRES_USER) -d $(POSTGRES_DATABASE)
