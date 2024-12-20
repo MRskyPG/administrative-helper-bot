@@ -1,4 +1,5 @@
 from typing import List, Tuple
+from datetime import datetime
 import psycopg2
 import sys
 from app.config import postgres_user, postgres_password, postgres_database
@@ -43,6 +44,82 @@ def get_place() -> str:
 
     cursor.close()
     return place
+
+# Функции для всех добавленных мест (список)
+def add_place_to_list(place: str):
+    global Conn
+    cursor = Conn.cursor()
+
+    cursor.execute("INSERT INTO places_list (place) VALUES (%s)", (place,))
+
+    # Зафиксировать изменение
+    Conn.commit()
+    cursor.close()
+
+
+def get_places_from_list():
+    global Conn
+    cursor = Conn.cursor()
+
+    cursor.execute("SELECT place FROM places_list")
+    places = cursor.fetchall()
+
+    cursor.close()
+    return [place[0] for place in places]  # Возвращаем список мест
+
+
+def delete_place_from_list(place_id: int):
+    global Conn
+    cursor = Conn.cursor()
+
+    cursor.execute("DELETE FROM places_list WHERE id = %s", (place_id,))
+
+    # Зафиксировать изменение
+    Conn.commit()
+    result = cursor.rowcount > 0
+    cursor.close()
+    return result
+
+
+# Функции для работы с очередью на добавление места
+def add_place_to_queue(place: str, execute_at: datetime):
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("INSERT INTO places_queue (place, execute_at) VALUES (%s, %s)", (place, execute_at))
+    Conn.commit()
+    cursor.close()
+
+
+# получение всех мест из очереди
+def get_places_from_queue():
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("SELECT * FROM places_queue ORDER BY execute_at")
+    places = cursor.fetchall()
+    cursor.close()
+    return places
+
+# удаление места из очереди по ID
+def remove_place_from_queue(place_id: int):
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("DELETE FROM places_queue WHERE id = %s", (place_id,))
+    Conn.commit()
+    cursor.close()
+
+def get_places_from_queue_by_id(id: int) -> str:
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("SELECT place, execute_at FROM places_queue where id=%s", (id,))
+
+    data = cursor.fetchall()
+    cursor.close()
+
+    if data:
+        place, execute_at = data[0]
+        return place, execute_at
+    else:
+        raise ValueError(f"No places found for places_queue ID: {id}")
 
 #-------------------------------------------------------------------------
 
