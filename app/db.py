@@ -61,11 +61,11 @@ def get_places_from_list():
     global Conn
     cursor = Conn.cursor()
 
-    cursor.execute("SELECT place FROM places_list")
+    cursor.execute("SELECT id, place FROM places_list")
     places = cursor.fetchall()
 
     cursor.close()
-    return [place[0] for place in places]  # Возвращаем список мест
+    return places
 
 
 def delete_place_from_list(place_id: int):
@@ -79,6 +79,20 @@ def delete_place_from_list(place_id: int):
     result = cursor.rowcount > 0
     cursor.close()
     return result
+
+
+def get_place_from_list_by_id(id: int) -> str:
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("SELECT place FROM places_list where id=%s", (id,))
+
+    data = cursor.fetchall()
+    cursor.close()
+
+    if data:
+        return data[0][0]
+    else:
+        raise ValueError(f"No place found for places_list ID: {id}")
 
 
 # Функции для работы с очередью на добавление места
@@ -107,7 +121,7 @@ def remove_place_from_queue(place_id: int):
     Conn.commit()
     cursor.close()
 
-def get_places_from_queue_by_id(id: int) -> str:
+def get_places_from_queue_by_id(id: int):
     global Conn
     cursor = Conn.cursor()
     cursor.execute("SELECT place, execute_at FROM places_queue where id=%s", (id,))

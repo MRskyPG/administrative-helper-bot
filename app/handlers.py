@@ -38,9 +38,11 @@ class GetPlace(StatesGroup):
     waiting_for_date = State()
     waiting_for_time = State()
     waiting_for_place = State()
+    waiting_for_type_new_place = State()
     waiting_for_confirmation = State()
     waiting_for_cancel = State()
     delete_from_queue = State()
+    delete_from_list = State()
 
 class CommonQuestions(StatesGroup):
     add_question = State()
@@ -91,11 +93,36 @@ def execute_scheduled_tasks():
 # Запускаем фоновую задачу для выполнения запланированных задач
 threading.Thread(target=execute_scheduled_tasks, daemon=True).start()
 
+def get_places_list():
+    list_of_places = app.db.get_places_from_list()
+
+    buttons = []
+    if len(list_of_places) != 0:
+
+        i = 1
+
+        for place in list_of_places:
+            button = [InlineKeyboardButton(text=f"{i}. {place[1]}", callback_data=f"listplace_{place[0]}")]
+            buttons.append(button)
+            i += 1
+
+        buttons.append([InlineKeyboardButton(text="Задать место", callback_data="new_place")])
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+    else:
+        buttons.append([InlineKeyboardButton(text="Задать место", callback_data="new_place")])
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+
+    return keyboard, buttons
+
 async def set_commands_list_private(bot):
     commands = [
         BotCommand(command="/start", description="Запуск бота"),
         BotCommand(command="/setplace", description="Задать ваше место"),
         BotCommand(command="/placesqueue", description="Очередь запланированных мест для добавления"),
+        BotCommand(command="/placeslist", description="Список использованных ранее мест"),
         BotCommand(command="/getplace", description="Получить сведения о заданном ранее месте"),
         BotCommand(command="/ask", description="Список общих вопросов/ответов"),
         BotCommand(command="/staffquestions", description="Посмотреть вопросы сотрудников")
@@ -110,20 +137,49 @@ async def cmd_start(message: Message, state: FSMContext):
     await message.answer(f'Привет, {message.from_user.full_name}! Здесь Вы можете задать ваше место, отвечать на вопросы сотрудников и другое! '
                          f'Смотрите список доступных возможностей в меню команд.', reply_markup=ReplyKeyboardRemove())
 
-
+# Хэндлер на команду /setplace
 @router.message(Command("setplace"))
 async def cmd_set_my_place(message: Message, state: FSMContext):
-    await message.answer("Введите новое место. Для отмены - /cancel")
+    list_places_keyboard, _ = get_places_list()
+    await message.answer("Выберите доступное место или добавьте новое:", reply_markup=list_places_keyboard)
     await state.set_state(GetPlace.waiting_for_place)
 
 
-@router.message(GetPlace.waiting_for_place, F.content_type.in_({'text'}), F.text[0] != "/")
+# Использовать выбранное место из списка
+@router.callback_query(GetPlace.waiting_for_place, F.data.startswith("listplace_"))
+async def callbacks_place_from_list(callback: CallbackQuery, state: FSMContext):
+    place_id = callback.data.split('_')[1]
+
+    place_text = app.db.get_place_from_list_by_id(place_id)
+
+    # Сохраняем это место для дальнейшего использования
+    await state.update_data(place=place_text)
+    await state.update_data(if_old_place=1)
+    await callback.message.answer("Выберите, когда хотите обновить ваше место:",
+                         reply_markup=make_row_keyboard(confirmations_date))
+
+    # Переход к выбору, когда добавить это место
+    await state.set_state(GetPlace.waiting_for_confirmation)
+    await callback.answer()
+
+
+# Выбрано было ввести новое место
+@router.callback_query(F.data.startswith("new_place"))
+async def cmd_set_my_place(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer("Введите новое место. Для отмены - /cancel")
+    await state.set_state(GetPlace.waiting_for_type_new_place)
+    await callback.answer()
+
+
+# Ввести новое место
+@router.message(GetPlace.waiting_for_type_new_place)
 async def set_new_place(message: Message, state: FSMContext):
     place = message.text
     if len(place) < 5:
         await message.answer("Попробуйте написать более подробно.")
     else:
         await state.update_data(place=place)
+        await state.update_data(if_old_place=0)
         await message.answer("Выберите, когда хотите обновить ваше место:", reply_markup=make_row_keyboard(confirmations_date))
 
         await state.set_state(GetPlace.waiting_for_confirmation)
@@ -138,15 +194,17 @@ async def incorrect_type_of_place(message: Message):
 @router.message(GetPlace.waiting_for_confirmation, F.text==confirmations_date[0])
 async def confirm_date_now(message: Message, state: FSMContext):
     data = await state.get_data()
-    place = data['place']
-
+    place = str(data['place'])
+    check_status_of_place = int(data['if_old_place'])
     app.db.set_place(place)
-    app.db.add_place_to_list(place)
+
+    if check_status_of_place == 0:
+        app.db.add_place_to_list(place)
 
     await message.answer("Место обновлено!", reply_markup=ReplyKeyboardRemove())
     await state.clear()
 
-
+# Новая дата
 @router.message(GetPlace.waiting_for_confirmation, F.text == confirmations_date[1])
 async def confirm_set_new_date(message: Message, state: FSMContext):
     await message.answer(
@@ -213,6 +271,76 @@ async def cmd_get_place(message: Message, state: FSMContext):
     place = app.db.get_place()
     await message.answer(f'Информация о моем местонахождении: {place}')
 
+
+# ------------------------------------------------------------------------------------
+# Посмотреть список доступных мест
+@router.message(Command("placeslist"))
+async def cmd_get_places_list(message: Message, state: FSMContext):
+    await state.clear()
+    _, buttons = get_places_list()
+
+
+    if len(buttons) == 1:
+        await message.answer("Использованных ранее мест нет. Задайте в /setplace")  # Если только одна кнопка "Задать место"
+    else:
+        buttons.pop()
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await message.answer("Выберите доступное место или добавьте новое:", reply_markup=keyboard)
+
+
+@router.callback_query(StateFilter(None), F.data.startswith("listplace_"))
+async def action_with_place_from_list(callback: CallbackQuery, state: FSMContext):
+    place_id = callback.data.split('_')[1]
+
+    place_text = app.db.get_place_from_list_by_id(place_id)
+
+
+
+    text = f"{place_text}."
+
+    buttons = [
+        [InlineKeyboardButton(text="Удалить место из списка", callback_data=f"deleteplacefromlist_{place_id}")],
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await callback.message.answer(text, reply_markup=keyboard)
+    await callback.answer()
+
+@router.callback_query(F.data.startswith("deleteplacefromlist_"))
+async def delete_place_from_list(callback: CallbackQuery, state: FSMContext):
+    place_id = callback.data.split('_')[1]
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Удалить", callback_data="confirm_delete")]])
+
+    await callback.message.answer("Подтвердите удаление. Для отмены /cancel.", reply_markup=keyboard)
+    await state.update_data(place_list_id=place_id)
+    await state.set_state(GetPlace.delete_from_list)
+
+    await callback.answer()
+
+
+# Было введено что-то, а не выбрано подтверждение удаления
+@router.message(GetPlace.delete_from_list, F.content_type.in_({'text', 'sticker', 'photo', 'video', 'audio', 'voice',
+                                                                        'document', 'location', 'contact'}), F.text[0] != "/")
+async def incorrect_deletion_place_from_list(message: Message):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="Удалить", callback_data="confirm_delete")]])
+
+    await message.answer("Вы сделали не правильный выбор. Для удаления нажмите кнопку ниже."
+                                  " Для отмены /cancel.", reply_markup=keyboard)
+
+
+@router.callback_query(GetPlace.delete_from_list, F.data.startswith("confirm_delete"))
+async def confirm_deletion_place_from_list(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    place_id = int(data['place_list_id'])
+
+    app.db.delete_place_from_list(place_id)
+
+    await callback.message.answer("Место было удалено из списка.\nСписок мест - /placeslist\nЗадать место - /setplace")
+    await state.clear()
+
+    await callback.answer()
 
 # ------------------------------------------------------------------------------------
 # Работа с очередь запланированных для добавления мест
