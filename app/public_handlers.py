@@ -1,3 +1,5 @@
+import time
+
 from aiogram import F, Router
 from aiogram.filters.command import Command, CommandObject
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup,\
@@ -5,8 +7,10 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKe
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 from aiogram.fsm.state import StatesGroup, State
-import app.db
 
+# Мои библиотеки
+import app.db
+import app.smiles as smiles
 
 public_router = Router()
 
@@ -14,13 +18,18 @@ public_router = Router()
 class AskSomething(StatesGroup):
     waiting_question = State()
 
+text_about_commands = "Выберите, что вас интересует:" \
+                      "\n/getplace - Информация о местонахождении преподавателя" \
+                      "\n/common_questions - Список вопросов/ответов" \
+        "\n/ask - Задать свой вопрос"
 
 async def set_commands_list_public(bot):
     commands = [
         BotCommand(command="/start", description="Запуск бота"),
         BotCommand(command="/getplace", description="Информация о местонахождении преподавателя"),
         BotCommand(command="/common_questions", description="Список вопросов/ответов"),
-        BotCommand(command="/ask", description="Задать вопрос")
+        BotCommand(command="/ask", description="Задать свой вопрос"),
+        BotCommand(command="/cancel", description="Отмена")
     ]
     await bot.set_my_commands(commands)
 
@@ -28,7 +37,15 @@ async def set_commands_list_public(bot):
 # Хэндлер на команду /start
 @public_router.message(Command("start"))
 async def public_cmd_start(message: Message):
-    await message.answer(f'Привет, {message.from_user.full_name}! Здесь ты можешь узнать, где О.Е.Аврунев')
+    start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с Авруневым Олегом Евгеньевичем. ' \
+                 f'\n\nЗдесь Вы можете:' \
+                 f'\n\t- Посмотреть информацию о местонахождении преподавателя {smiles.walk_man}' \
+                 f'\n\t- Ознакомиться с ответами на частозадаваемые вопросы {smiles.computer}' \
+                 f'\n\t- Задать свой вопрос, на который через время Вам придет ответ {smiles.pencil}{smiles.letter}\n\n'
+
+    final_text = start_text + text_about_commands
+
+    await message.answer(text=final_text)
 
 
 # Хэндлер на команду /getplace
@@ -36,6 +53,8 @@ async def public_cmd_start(message: Message):
 async def cmd_get_place(message: Message):
     place = app.db.get_place()
     await message.answer(f'Информация о местонахождении О.Е.Аврунева: {place}')
+    time.sleep(1)
+    await message.answer(text=text_about_commands)
 
 
 # Хэндлер на команду /ask
@@ -48,11 +67,11 @@ async def cmd_ask(message: Message, state: FSMContext):
 @public_router.message(AskSomething.waiting_question, F.content_type.in_({'text'}), F.text[0] != "/")
 async def set_new_place(message: Message, state: FSMContext):
     if len(message.text) < 5:
-        await message.answer("Попробуйте написать ваш вопрос более подробно.")
+        await message.answer(f"Попробуйте написать ваш вопрос более подробно {smiles.pencil}")
     else:
         question = message.text
         app.db.add_staff_question(question, message.from_user.id, message.from_user.full_name)
-        await message.reply("Вопрос отправлен! Ожидайте ответа.")
+        await message.reply(f"Вопрос отправлен! Ожидайте ответа {smiles.clock}")
         await state.clear()
 
 
@@ -79,7 +98,6 @@ async def cmd_common(message: Message):
         await message.reply("Выберите вопрос:", reply_markup=keyboard)
 
     else:
-        # TODO: добавить кнопку "добавить вопрос и ответ"
         await message.answer("Нет общих вопросов и ответов.")
 
 
@@ -90,7 +108,7 @@ async def callbacks_common_questions(callback: CallbackQuery):
     # Получаем вопрос и ответ
     question, answer = app.db.get_common_question_answer_by_id(common_questions_id)
 
-    text = f"Вопрос: {question}.\n\nОтвет: {answer}"
+    text = f"{smiles.question_sign}Вопрос: {question}.\n\n{smiles.check_mark} Ответ: {answer}"
 
 
     await callback.message.answer(text)
@@ -104,6 +122,8 @@ async def cmd_cancel_no_state(message: Message, state: FSMContext):
         text="Нечего отменять",
         reply_markup=ReplyKeyboardRemove()
     )
+    time.sleep(1)
+    await message.answer(text=text_about_commands)
 
 
 @public_router.message(Command("cancel"))
@@ -113,6 +133,8 @@ async def cmd_cancel(message: Message, state: FSMContext):
         text="Действие отменено",
         reply_markup=ReplyKeyboardRemove()
     )
+    time.sleep(1)
+    await message.answer(text=text_about_commands)
 
 @public_router.message(F.content_type.in_({'text', 'sticker', 'photo', 'video', 'audio', 'voice', 'document',
                                            'location', 'contact'}))

@@ -17,14 +17,26 @@ import threading
 import time
 import pytz
 
+# Мои библиотеки
 import app.db
+import app.smiles as smiles
 
 novosibirsk_tz = pytz.timezone('Asia/Novosibirsk')
 
 router = Router()
 
-confirmations = ["Да", "Нет, изменить ответ"]
-confirmations_date = ["Сейчас", "Выбрать дату и время"]
+confirmations = [f"Да {smiles.check_mark}", f"Нет, изменить ответ {smiles.cross_mark}"]
+confirmations_date = [f"Сейчас {smiles.rocket}", f"Выбрать дату и время {smiles.clock}"]
+
+
+text_about_commands = "Выберите, что вас интересует:" \
+                      "\n/setplace - Задать место, где вы находитесь" \
+                      "\n/placesqueue - Очередь запланированных мест для добавления" \
+        "\n/placeslist - Список использованных ранее мест" \
+        "\n/getplace - Получить сведения о заданном ранее месте" \
+        "\n/ask - Список общих вопросов/ответов" \
+        "\n/staffquestions - Посмотреть вопросы сотрудников"
+
 
 # Глобальная переменная для второго бота
 bot_2 : aiogram.Bot
@@ -69,9 +81,6 @@ def make_row_keyboard(items: List[str]) -> ReplyKeyboardMarkup:
 async def update_ask_text(message: Message, answer: str):
     await message.edit_text(text=f"{answer}", reply_markup=get_question_keyboard())
 
-# Очередь задач
-task_queue = {}
-
 
 def schedule_task(place, execute_at):
     app.db.add_place_to_queue(place, execute_at)
@@ -106,12 +115,12 @@ def get_places_list():
             buttons.append(button)
             i += 1
 
-        buttons.append([InlineKeyboardButton(text="Задать место", callback_data="new_place")])
+        buttons.append([InlineKeyboardButton(text=f"Задать место {smiles.pencil}", callback_data="new_place")])
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
     else:
-        buttons.append([InlineKeyboardButton(text="Задать место", callback_data="new_place")])
+        buttons.append([InlineKeyboardButton(text=f"Задать место {smiles.pencil}", callback_data="new_place")])
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
@@ -120,12 +129,13 @@ def get_places_list():
 async def set_commands_list_private(bot):
     commands = [
         BotCommand(command="/start", description="Запуск бота"),
-        BotCommand(command="/setplace", description="Задать ваше место"),
+        BotCommand(command="/setplace", description="Задать место, где вы находитесь"),
         BotCommand(command="/placesqueue", description="Очередь запланированных мест для добавления"),
         BotCommand(command="/placeslist", description="Список использованных ранее мест"),
         BotCommand(command="/getplace", description="Получить сведения о заданном ранее месте"),
         BotCommand(command="/ask", description="Список общих вопросов/ответов"),
-        BotCommand(command="/staffquestions", description="Посмотреть вопросы сотрудников")
+        BotCommand(command="/staffquestions", description="Посмотреть вопросы сотрудников"),
+        BotCommand(command="/cancel", description="Отмена действия")
     ]
     await bot.set_my_commands(commands)
 
@@ -134,8 +144,16 @@ async def set_commands_list_private(bot):
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
-    await message.answer(f'Привет, {message.from_user.full_name}! Здесь Вы можете задать ваше место, отвечать на вопросы сотрудников и другое! '
-                         f'Смотрите список доступных возможностей в меню команд.', reply_markup=ReplyKeyboardRemove())
+    start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с сотрудниками. ' \
+                 f'\n\nЗдесь Вы можете:' \
+                 f'\n\t- Задать ваше текущее место сейчас или запланировать его позже {smiles.clock}' \
+                 f'\n\t- Редактировать список запланированных и использованных ранее мест {smiles.pencil}' \
+                 f'\n\t- Отвечать на вопросы сотрудников {smiles.letter}' \
+                 f'\n\t- Редактировать общие ответы и вопросы! {smiles.save_emoji}' \
+                 f'\n\nСотрудники будут взаимодействовать с вами через другого бота, ' \
+                 f'по которому смогут перейти по QR-коду.\n\n'
+    final_text = start_text + text_about_commands
+    await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
 
 # Хэндлер на команду /setplace
 @router.message(Command("setplace"))
@@ -172,7 +190,7 @@ async def cmd_set_my_place(callback: CallbackQuery, state: FSMContext):
 
 
 # Ввести новое место
-@router.message(GetPlace.waiting_for_type_new_place)
+@router.message(GetPlace.waiting_for_type_new_place, F.text[0] != "/")
 async def set_new_place(message: Message, state: FSMContext):
     place = message.text
     if len(place) < 5:
@@ -269,7 +287,9 @@ async def set_new_time(message: Message, state: FSMContext):
 async def cmd_get_place(message: Message, state: FSMContext):
     await state.clear()
     place = app.db.get_place()
-    await message.answer(f'Информация о моем местонахождении: {place}')
+    await message.answer(f'Информация о Вашем местонахождении: {place}')
+    time.sleep(1)
+    await message.answer(text=text_about_commands)
 
 
 # ------------------------------------------------------------------------------------
@@ -285,7 +305,7 @@ async def cmd_get_places_list(message: Message, state: FSMContext):
     else:
         buttons.pop()
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-        await message.answer("Выберите доступное место или добавьте новое:", reply_markup=keyboard)
+        await message.answer("Выберите доступное место:", reply_markup=keyboard)
 
 
 @router.callback_query(StateFilter(None), F.data.startswith("listplace_"))
@@ -484,7 +504,7 @@ async def confirm_yes(message: Message, state: FSMContext):
 
     question = app.db.get_question_by_id(id)
     # Ответ публичным ботом нужному пользователю
-    await bot_2.send_message(chat_id=chat_id, text=f"Вам ответил О.Е.Аврунев!\nВаш вопрос: {question}\nОтвет: {answer}")
+    await bot_2.send_message(chat_id=chat_id, text=f"Вам ответил О.Е.Аврунев!\n\n{smiles.question_sign} Ваш вопрос: {question}\n\n{smiles.check_mark} Ответ: {answer}")
 
     # Удаление ответа из списка
     app.db.delete_question_by_id(id)
@@ -502,7 +522,7 @@ async def confirm_no(message: Message, state: FSMContext):
 # Если не правильный выбор
 @router.message(DoAnswer.confirmation)
 async def confirm_incorrect(message: Message):
-    await message.answer(f"Неправильный выбор. Выберите из двух кнопок.")
+    await message.answer(f"Неправильный выбор {smiles.cross_mark}. Выберите из двух кнопок.")
 
 
 
@@ -524,12 +544,12 @@ async def cmd_ask(message: Message, state: FSMContext):
             buttons.append(button)
             i += 1
 
-        buttons.append([InlineKeyboardButton(text="Добавить вопрос и ответ", callback_data="add_qa")])
+        buttons.append([InlineKeyboardButton(text=f"Добавить вопрос и ответ {smiles.pencil}", callback_data="add_qa")])
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         await message.reply("Выберите вопрос:", reply_markup=keyboard)
 
     else:
-        buttons.append([InlineKeyboardButton(text="Добавить вопрос и ответ", callback_data="add_qa")])
+        buttons.append([InlineKeyboardButton(text=f"Добавить вопрос и ответ {smiles.pencil}", callback_data="add_qa")])
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         await message.answer("Нет общих вопросов и ответов.", reply_markup=keyboard)
 
@@ -541,7 +561,7 @@ async def callbacks_common_questions(callback: CallbackQuery):
     # Получаем вопрос и ответ
     question, answer = app.db.get_common_question_answer_by_id(common_questions_id)
 
-    text = f"Вопрос: {question}.\n\nОтвет: {answer}"
+    text = f"{smiles.question_sign}Вопрос: {question}.\n\n{smiles.check_mark} Ответ: {answer}"
 
     buttons = [
         [InlineKeyboardButton(text="Редактировать вопрос", callback_data=f"changeq_{common_questions_id}")],
@@ -655,7 +675,9 @@ async def confirm_deletion(callback: CallbackQuery, state: FSMContext):
 
     app.db.delete_common_questions_by_id(common_questions_id)
 
-    await callback.message.answer("Вопрос и ответ были удалены. Список общих вопросов и ответов - /ask")
+    text = "Вопрос и ответ были удалены.\n\n"
+    text += text_about_commands
+    await callback.message.answer(text)
     await state.clear()
 
     await callback.answer()
@@ -680,7 +702,7 @@ async def add_common_question(message: Message, state: FSMContext):
         await message.answer("Теперь введите ответ:")
         await state.set_state(CommonQuestions.add_answer)
     else:
-        await message.answer("Слишком короткий вопрос. Введите подробнее.")
+        await message.answer(f"Слишком короткий вопрос. Введите подробнее {smiles.pencil}")
 
 # При ошибочном типе сообщения нового общего вопроса
 @router.message(CommonQuestions.add_question,
@@ -698,11 +720,13 @@ async def add_common_answer(message: Message, state: FSMContext):
 
         app.db.add_common_questions(question, answer)
 
-        await message.answer("Готово! Список общих вопросов и ответов - /ask")
+        text = "Готово!\n\n"
+        text += text_about_commands
+        await message.answer(text)
 
         await state.clear()
     else:
-        await message.answer("Слишком короткий ответ. Введите подробнее.")
+        await message.answer(f"Слишком короткий ответ. Введите подробнее {smiles.pencil}")
 
 
 # При ошибочном типе сообщения нового общего вопроса
@@ -720,6 +744,8 @@ async def cmd_cancel_no_state(message: Message, state: FSMContext):
         text="Нечего отменять",
         reply_markup=ReplyKeyboardRemove()
     )
+    time.sleep(1)
+    await message.answer(text=text_about_commands)
 
 
 @router.message(Command("cancel"))
@@ -729,6 +755,8 @@ async def cmd_cancel(message: Message, state: FSMContext):
         text="Действие отменено",
         reply_markup=ReplyKeyboardRemove()
     )
+    time.sleep(1)
+    await message.answer(text=text_about_commands)
 
 @router.message(F.content_type.in_({'text', 'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
 async def any_message(message: Message, state: FSMContext):
