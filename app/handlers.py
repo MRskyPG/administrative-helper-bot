@@ -16,6 +16,7 @@ import asyncio
 import threading
 import time
 import pytz
+import locale
 
 # Мои библиотеки
 import app.db
@@ -225,9 +226,10 @@ async def confirm_date_now(message: Message, state: FSMContext):
 # Новая дата
 @router.message(GetPlace.waiting_for_confirmation, F.text == confirmations_date[1])
 async def confirm_set_new_date(message: Message, state: FSMContext):
+    # on Ubuntu server use "ru_RU.UTF-8" after setting it in "sudo dpkg-reconfigure locales" and rebooting system
     await message.answer(
             "Хорошо, теперь выберите дату: ",
-            reply_markup=await SimpleCalendar(locale=await get_user_locale(message.from_user)).start_calendar()
+            reply_markup=await SimpleCalendar(locale="ru_RU").start_calendar()
         )
     await state.set_state(GetPlace.waiting_for_date)
 
@@ -240,7 +242,8 @@ async def confirm_date_incorrect(message: Message):
 
 @router.callback_query(GetPlace.waiting_for_date, SimpleCalendarCallback.filter())
 async def process_simple_calendar(callback_query: CallbackQuery, callback_data: CallbackData, state: FSMContext):
-    calendar = SimpleCalendar(locale=await get_user_locale(callback_query.from_user), show_alerts=True)
+    # on Ubuntu server use "ru_RU.UTF-8" after setting it in "sudo dpkg-reconfigure locales" and rebooting system
+    calendar = SimpleCalendar(locale="ru_RU", show_alerts=True)
     selected, date = await calendar.process_selection(callback_query, callback_data)
     if selected:
         await callback_query.message.answer(f'Вы выбрали {date.strftime("%d/%m/%Y")}. Теперь введите ваше время в формате HH:mm:', reply_markup=ReplyKeyboardRemove())
