@@ -10,12 +10,16 @@ from aiogram.fsm.state import StatesGroup, State
 
 # Мои библиотеки
 import app.db
+import app.gpt as gpt
 import app.smiles as smiles
 
 public_router = Router()
 
 
 class AskSomething(StatesGroup):
+    waiting_question = State()
+
+class AskGPT(StatesGroup):
     waiting_question = State()
 
 text_about_commands = "Выберите, что вас интересует:" \
@@ -29,6 +33,7 @@ async def set_commands_list_public(bot):
         BotCommand(command="/getplace", description="Информация о местонахождении О.Е.Аврунева"),
         BotCommand(command="/common_questions", description="Список вопросов/ответов"),
         BotCommand(command="/ask", description="Задать свой вопрос"),
+        BotCommand(command="/gpt", description="Спросить умного помощника"),
         BotCommand(command="/cancel", description="Отмена")
     ]
     await bot.set_my_commands(commands)
@@ -46,6 +51,20 @@ async def public_cmd_start(message: Message):
     final_text = start_text + text_about_commands
 
     await message.answer(text=final_text)
+
+
+# Хэндлер на команду /gpt
+@public_router.message(StateFilter(None), Command("gpt"))
+async def cmd_gpt(message: Message, state: FSMContext):
+    await message.answer("Введите ваш вопрос, который хотите задать. Для отмены - /cancel")
+    await state.set_state(AskGPT.waiting_question)
+
+
+@public_router.message(AskGPT.waiting_question, F.content_type.in_({'text'}), F.text[0] != "/")
+async def question_for_gpt(message: Message, state: FSMContext):
+        question = message.text
+        answer = gpt.run_gpt(question)
+        await message.reply(f"{answer}")
 
 
 # Хэндлер на команду /getplace
