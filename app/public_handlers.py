@@ -19,14 +19,14 @@ class AskSomething(StatesGroup):
     waiting_question = State()
 
 text_about_commands = "Выберите, что вас интересует:" \
-                      "\n/getplace - Информация о местонахождении преподавателя" \
+                      "\n/getplace - Информация о местонахождении О.Е.Аврунева" \
                       "\n/common_questions - Список вопросов/ответов" \
         "\n/ask - Задать свой вопрос"
 
 async def set_commands_list_public(bot):
     commands = [
         BotCommand(command="/start", description="Запуск бота"),
-        BotCommand(command="/getplace", description="Информация о местонахождении преподавателя"),
+        BotCommand(command="/getplace", description="Информация о местонахождении О.Е.Аврунева"),
         BotCommand(command="/common_questions", description="Список вопросов/ответов"),
         BotCommand(command="/ask", description="Задать свой вопрос"),
         BotCommand(command="/cancel", description="Отмена")
@@ -39,7 +39,7 @@ async def set_commands_list_public(bot):
 async def public_cmd_start(message: Message):
     start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с Авруневым Олегом Евгеньевичем. ' \
                  f'\n\nЗдесь Вы можете:' \
-                 f'\n\t- Посмотреть информацию о местонахождении преподавателя {smiles.walk_man}' \
+                 f'\n\t- Посмотреть информацию о текущем месте О.Е.Аврунева {smiles.walk_man}' \
                  f'\n\t- Ознакомиться с ответами на частозадаваемые вопросы {smiles.computer}' \
                  f'\n\t- Задать свой вопрос, на который через время Вам придет ответ {smiles.pencil}{smiles.letter}\n\n'
 
