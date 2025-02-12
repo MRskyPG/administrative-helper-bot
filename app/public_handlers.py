@@ -25,7 +25,8 @@ class AskGPT(StatesGroup):
 text_about_commands = "Выберите, что вас интересует:" \
                       "\n/getplace - Информация о местонахождении О.Е.Аврунева" \
                       "\n/common_questions - Список вопросов/ответов" \
-        "\n/ask - Задать свой вопрос"
+        "\n/ask - Задать свой вопрос О.Е.Авруневу" \
+        "\n/gpt - Спросить умного помощника"
 
 async def set_commands_list_public(bot):
     commands = [
@@ -46,7 +47,9 @@ async def public_cmd_start(message: Message):
                  f'\n\nЗдесь Вы можете:' \
                  f'\n\t- Посмотреть информацию о текущем месте О.Е.Аврунева {smiles.walk_man}' \
                  f'\n\t- Ознакомиться с ответами на частозадаваемые вопросы {smiles.computer}' \
-                 f'\n\t- Задать свой вопрос, на который через время Вам придет ответ {smiles.pencil}{smiles.letter}\n\n'
+                 f'\n\t- Задать свой вопрос, на который через время Вам придет ответ от О.Е.Аврунева{smiles.pencil}{smiles.letter}\n\n' \
+                f'\n\t- Или спросить умного помощника, если О.Е.Аврунев сейчас не может ответить.'
+
 
     final_text = start_text + text_about_commands
 
