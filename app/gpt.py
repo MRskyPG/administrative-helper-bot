@@ -51,7 +51,7 @@ def run_gpt(user_text):
     # Указываем тип модели
     data["modelUri"] = f"gpt://{yandex_cloud_id}/yandexgpt-lite"
     # Настраиваем опции
-    data["completionOptions"] = {"temperature": 0.3, "maxTokens": 1000}
+    data["completionOptions"] = {"temperature": 0.6, "maxTokens": 2000}
     # Указываем контекст для модели
     data["messages"] = messages
 
