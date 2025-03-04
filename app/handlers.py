@@ -139,6 +139,7 @@ async def set_commands_list_private(bot):
         BotCommand(command="/ask", description="Список общих вопросов/ответов"),
         BotCommand(command="/staffquestions", description="Посмотреть вопросы сотрудников"),
         BotCommand(command="/cancel", description="Отмена действия"),
+        BotCommand(command="/register", description="Регистрация пользователя (только для owner, не для admin)"),
         BotCommand(command="/logout", description="Выйти из системы")
     ]
     await bot.set_my_commands(commands)
@@ -201,6 +202,21 @@ async def cmd_auth(message: Message):
         if user[2] == username and verify_password(user[3], password):
             set_auth_status(message.from_user.id, True)
             await message.reply("Авторизация прошла успешно!")
+
+            start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с сотрудниками. ' \
+                         f'\n\nЗдесь Вы можете:' \
+                         f'\n\t- Задать ваше текущее место сейчас или запланировать его позже {smiles.clock}' \
+                         f'\n\t- Редактировать список запланированных и использованных ранее мест {smiles.pencil}' \
+                         f'\n\t- Отвечать на вопросы сотрудников {smiles.letter}' \
+                         f'\n\t- Редактировать общие ответы и вопросы! {smiles.save_emoji}' \
+                         f'\n\nСотрудники будут взаимодействовать с вами через другого бота, ' \
+                         f'по которому смогут перейти по QR-коду.\n\n'
+
+            final_text = start_text + text_about_commands
+
+            time.sleep(2)
+            await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
+
         else:
             await message.reply("Неверные данные авторизации.")
 
