@@ -20,6 +20,7 @@ import locale
 
 # Мои библиотеки
 import app.db
+from app.crypt_db import get_user_by_tg_id, register_user, verify_password, set_auth_status, get_auth_status
 import app.smiles as smiles
 
 novosibirsk_tz = pytz.timezone('Asia/Novosibirsk')
@@ -130,13 +131,15 @@ def get_places_list():
 async def set_commands_list_private(bot):
     commands = [
         BotCommand(command="/start", description="Запуск бота"),
+        BotCommand(command="/auth", description="Авторизоваться в системе"),
         BotCommand(command="/setplace", description="Задать место, где вы находитесь"),
         BotCommand(command="/placesqueue", description="Очередь запланированных мест для добавления"),
         BotCommand(command="/placeslist", description="Список использованных ранее мест"),
         BotCommand(command="/getplace", description="Получить сведения о заданном ранее месте"),
         BotCommand(command="/ask", description="Список общих вопросов/ответов"),
         BotCommand(command="/staffquestions", description="Посмотреть вопросы сотрудников"),
-        BotCommand(command="/cancel", description="Отмена действия")
+        BotCommand(command="/cancel", description="Отмена действия"),
+        BotCommand(command="/logout", description="Выйти из системы")
     ]
     await bot.set_my_commands(commands)
 
@@ -145,6 +148,19 @@ async def set_commands_list_private(bot):
 @router.message(Command("start"))
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
+
+    # Проверяем, есть ли пользователь в базе
+    user = get_user_by_tg_id(message.from_user.id)
+    if user is None:
+        await message.answer(
+            "Вы не зарегистрированы в системе. Пожалуйста, обратитесь к администратору для регистрации.")
+        return
+
+    # Проверяем статус авторизации пользователя в базе
+    if not get_auth_status(message.from_user.id):
+        await message.answer("Доступ запрещён. Пожалуйста, пройдите авторизацию командой /auth <username> <password>.")
+        return
+
     start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с сотрудниками. ' \
                  f'\n\nЗдесь Вы можете:' \
                  f'\n\t- Задать ваше текущее место сейчас или запланировать его позже {smiles.clock}' \
@@ -155,6 +171,90 @@ async def cmd_start(message: Message, state: FSMContext):
                  f'по которому смогут перейти по QR-коду.\n\n'
     final_text = start_text + text_about_commands
     await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
+
+
+# Хэндлер на команду /auth
+@router.message(Command("auth"))
+async def cmd_auth(message: Message):
+    if get_auth_status(message.from_user.id):
+        await message.answer("Вы уже авторизованы!")
+        return
+
+    user = get_user_by_tg_id(message.from_user.id)
+    if user is None:
+        await message.answer(
+            "Вы не зарегистрированы в системе. Пожалуйста, обратитесь к администратору для регистрации.")
+        return
+
+    args = message.text.split()
+
+    if len(args) != 3:
+        await message.reply("Используйте команду: /auth <username> <password>")
+        return
+
+    username = args[1]
+    password = args[2]
+    user = get_user_by_tg_id(message.from_user.id)
+    if user is None:
+        await message.reply("Вы не зарегистрированы. Обратитесь к администратору.")
+    else:
+        if user[2] == username and verify_password(user[3], password):
+            set_auth_status(message.from_user.id, True)
+            await message.reply("Авторизация прошла успешно!")
+        else:
+            await message.reply("Неверные данные авторизации.")
+
+
+@router.message(Command("logout"))
+async def cmd_logout(message: Message):
+    user = get_user_by_tg_id(message.from_user.id)
+    if user is None:
+        await message.answer(
+            "Вы не зарегистрированы в системе. Пожалуйста, обратитесь к администратору для регистрации.")
+        return
+
+    if not get_auth_status(message.from_user.id):
+        await message.answer("Вы еще не в системе. Пройдите авторизацию командой /auth <username> <password>.")
+        return
+
+    set_auth_status(message.from_user.id, False)
+    await message.reply("Вы вышли из системы.")
+
+
+# Хэндлер на команду /register для регистрации новых пользователей. Доступно только владельцу (owner).
+@router.message(Command("register"))
+async def cmd_register(message: Message):
+    # Проверяем, является ли отправитель владельцем
+    user = get_user_by_tg_id(message.from_user.id)
+
+    if user is None or user[4] != 'owner':
+        await message.reply("У вас нет прав для регистрации пользователей.")
+        return
+
+    # Ожидаем аргументы: telegram_id, username, password, role
+    args = message.text.split()
+    if len(args) != 5:
+        await message.reply("Используйте команду: /register <telegram_id> <username> <password> <role>")
+        return
+
+    try:
+        new_telegram_id = int(args[1])
+    except ValueError:
+        await message.reply("telegram_id должен быть числом.")
+        return
+
+    new_username = args[2]
+    new_password = args[3]
+    new_role = args[4]
+    if new_role not in ('owner', 'admin'):
+        await message.reply("Роль должна быть 'owner' или 'admin'.")
+        return
+
+    if register_user(new_telegram_id, new_username, new_password, new_role):
+        await message.reply(f"Пользователь {new_username} зарегистрирован с ролью {new_role}.")
+    else:
+        await message.reply(f"Пользователь с telegram_id {new_telegram_id} уже существует.")
+
 
 # Хэндлер на команду /setplace
 @router.message(Command("setplace"))
