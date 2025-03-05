@@ -20,6 +20,7 @@ import locale
 
 # Мои библиотеки
 import app.db
+import app.crypt_db
 from app.crypt_db import get_user_by_tg_id, register_user, verify_password, set_auth_status, get_auth_status
 import app.smiles as smiles
 
@@ -43,7 +44,12 @@ text_about_commands = "Выберите, что вас интересует:" \
 # Глобальная переменная для второго бота
 bot_2 : aiogram.Bot
 
-# Для хранения состояния при ответе на вопрос сотрудника
+# Для хранения состояний
+class DoAuth(StatesGroup):
+    waiting_for_login = State()
+    waiting_for_password = State()
+
+
 class DoAnswer(StatesGroup):
     getting_answer = State()
     confirmation = State()
@@ -154,12 +160,12 @@ async def cmd_start(message: Message, state: FSMContext):
     user = get_user_by_tg_id(message.from_user.id)
     if user is None:
         await message.answer(
-            "Вы не зарегистрированы в системе. Пожалуйста, обратитесь к администратору для регистрации.")
+            "Вы не зарегистрированы в системе. Доступ запрещен.")
         return
 
     # Проверяем статус авторизации пользователя в базе
     if not get_auth_status(message.from_user.id):
-        await message.answer("Доступ запрещён. Пожалуйста, пройдите авторизацию командой /auth <username> <password>.")
+        await message.answer("Доступ запрещён. Пожалуйста, пройдите авторизацию командой /auth")
         return
 
     start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с сотрудниками. ' \
@@ -174,9 +180,10 @@ async def cmd_start(message: Message, state: FSMContext):
     await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
 
 
+# ---------------------------------------------------------------
 # Хэндлер на команду /auth
 @router.message(Command("auth"))
-async def cmd_auth(message: Message):
+async def cmd_auth(message: Message, state: FSMContext):
     if get_auth_status(message.from_user.id):
         await message.answer("Вы уже авторизованы!")
         return
@@ -184,41 +191,68 @@ async def cmd_auth(message: Message):
     user = get_user_by_tg_id(message.from_user.id)
     if user is None:
         await message.answer(
-            "Вы не зарегистрированы в системе. Пожалуйста, обратитесь к администратору для регистрации.")
+            "Вы не зарегистрированы в системе. Доступ запрещен.")
         return
 
-    args = message.text.split()
+    await message.answer("Введите ваш никнейм (логин). Для отмены - /cancel")
+    await state.set_state(DoAuth.waiting_for_login)
 
-    if len(args) != 3:
-        await message.reply("Используйте команду: /auth <username> <password>")
-        return
 
-    username = args[1]
-    password = args[2]
+@router.message(DoAuth.waiting_for_login, F.content_type.in_({'text'}), F.text[0] != "/")
+async def enter_login(message: Message, state: FSMContext):
+    login = message.text
+    await state.update_data(login=login)
+    await message.answer("Теперь введите пароль:")
+    await state.set_state(DoAuth.waiting_for_password)
+
+
+# При ошибочном типе сообщения логина
+@router.message(DoAuth.waiting_for_login,
+                F.content_type.in_({'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
+async def incorrect_enter_login(message: Message):
+    await message.answer("Напишите текстом!")
+
+
+@router.message(DoAuth.waiting_for_password, F.content_type.in_({'text'}), F.text[0] != "/")
+async def enter_password(message: Message, state: FSMContext):
+    password = message.text
+
+    data = await state.get_data()
+    login = data['login']
+
     user = get_user_by_tg_id(message.from_user.id)
-    if user is None:
-        await message.reply("Вы не зарегистрированы. Обратитесь к администратору.")
+
+    if user[2] == login and verify_password(user[3], password):
+        set_auth_status(message.from_user.id, True)
+        await message.reply("Авторизация прошла успешно!")
+
+        start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с сотрудниками. ' \
+                     f'\n\nЗдесь Вы можете:' \
+                     f'\n\t- Задать ваше текущее место сейчас или запланировать его позже {smiles.clock}' \
+                     f'\n\t- Редактировать список запланированных и использованных ранее мест {smiles.pencil}' \
+                     f'\n\t- Отвечать на вопросы сотрудников {smiles.letter}' \
+                     f'\n\t- Редактировать общие ответы и вопросы! {smiles.save_emoji}' \
+                     f'\n\nСотрудники будут взаимодействовать с вами через другого бота, ' \
+                     f'по которому смогут перейти по QR-коду.\n\n'
+
+        final_text = start_text + text_about_commands
+
+        time.sleep(2)
+        await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
+
     else:
-        if user[2] == username and verify_password(user[3], password):
-            set_auth_status(message.from_user.id, True)
-            await message.reply("Авторизация прошла успешно!")
+        await message.reply("Неверные данные авторизации.")
 
-            start_text = f'Привет, {message.from_user.full_name}! Данный бот поможет Вам удобно взаимодействовать с сотрудниками. ' \
-                         f'\n\nЗдесь Вы можете:' \
-                         f'\n\t- Задать ваше текущее место сейчас или запланировать его позже {smiles.clock}' \
-                         f'\n\t- Редактировать список запланированных и использованных ранее мест {smiles.pencil}' \
-                         f'\n\t- Отвечать на вопросы сотрудников {smiles.letter}' \
-                         f'\n\t- Редактировать общие ответы и вопросы! {smiles.save_emoji}' \
-                         f'\n\nСотрудники будут взаимодействовать с вами через другого бота, ' \
-                         f'по которому смогут перейти по QR-коду.\n\n'
+    await state.clear()
 
-            final_text = start_text + text_about_commands
 
-            time.sleep(2)
-            await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
+# При ошибочном типе сообщения пароля
+@router.message(DoAuth.waiting_for_password,
+                F.content_type.in_({'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
+async def incorrect_enter_password(message: Message):
+    await message.answer("Напишите текстом!")
 
-        else:
-            await message.reply("Неверные данные авторизации.")
+# --------------------------------------------------
 
 
 @router.message(Command("logout"))
