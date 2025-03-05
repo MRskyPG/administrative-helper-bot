@@ -93,6 +93,7 @@ async def update_ask_text(message: Message, answer: str):
 def schedule_task(place, execute_at):
     app.db.add_place_to_queue(place, execute_at)
 
+
 def execute_scheduled_tasks():
     while True:
         now = datetime.now()
@@ -133,6 +134,43 @@ def get_places_list():
 
 
     return keyboard, buttons
+
+
+def get_users_list(role: str):
+    list_of_users = []
+    is_empty = False
+
+    if role == "owner":
+        list_of_users = app.crypt_db.get_owners()
+
+    elif role == "admin":
+        list_of_users = app.crypt_db.get_admins()
+
+    buttons = []
+    if len(list_of_users) != 0:
+
+        i = 1
+
+        for user in list_of_users:
+            created_at = user[2]
+
+            button = [InlineKeyboardButton(text=f"{i}. Tg_id: {user[1]}. Создан: {created_at.strftime('%d-%m-%Y %H:%M')}", callback_data=f"{role}_{user[0]}")]
+            buttons.append(button)
+            i += 1
+
+        buttons.append(
+            [InlineKeyboardButton(text=f"Зарегистрировать {smiles.pencil}", callback_data="register_user")])
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+        return keyboard, buttons, is_empty
+    else:
+        buttons.append(
+            [InlineKeyboardButton(text=f"Зарегистрировать {smiles.pencil}", callback_data="register_user")])
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        is_empty = True
+
+        return keyboard, buttons, is_empty
+
 
 async def set_commands_list_private(bot):
     commands = [
@@ -306,6 +344,52 @@ async def cmd_register(message: Message):
         await message.reply(f"Пользователь с telegram_id {new_telegram_id} уже существует.")
 
 
+# Хэндлер на команду /manage
+@router.message(Command("manage"))
+async def cmd_manage(message: Message):
+    # Проверяем, является ли отправитель владельцем
+    user = get_user_by_tg_id(message.from_user.id)
+
+    if user is None or user[4] != 'owner':
+        await message.reply("У вас нет прав для управления пользователями.")
+        return
+
+    text = "Выберите, что вас интересует:"
+
+    buttons = [
+        [InlineKeyboardButton(text=f"Список владельцев", callback_data=f"list_owners")],
+        [InlineKeyboardButton(text=f"Список админов", callback_data=f"list_admins")],
+        [InlineKeyboardButton(text=f"Зарегистрировать нового пользователя", callback_data=f"register_user")],
+    ]
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await message.answer(text, reply_markup=keyboard)
+
+
+# Посмотреть список пользователей-владельцев
+@router.callback_query(F.data.startswith("list_owners"))
+async def callbacks_owners_list(callback: CallbackQuery):
+    owners_list_keyboard, _, is_empty = get_users_list("owner")
+    if is_empty:
+        await callback.message.answer("Список владельцев пуст.", reply_markup=owners_list_keyboard)
+    else:
+        await callback.message.answer("Список владельцев:", reply_markup=owners_list_keyboard)
+    await callback.answer()
+
+
+# Посмотреть список пользователей-админов
+@router.callback_query(F.data.startswith("list_admins"))
+async def callbacks_admins_list(callback: CallbackQuery):
+    admins_list_keyboard, _, is_empty = get_users_list("admin")
+    if is_empty:
+        await callback.message.answer("Список админов пуст.", reply_markup=admins_list_keyboard)
+    else:
+        await callback.message.answer("Список админов:", reply_markup=admins_list_keyboard)
+    await callback.answer()
+
+
+#------------------------------------------------------------------------------------------------------
 # Хэндлер на команду /setplace
 @router.message(Command("setplace"))
 async def cmd_set_my_place(message: Message, state: FSMContext):
