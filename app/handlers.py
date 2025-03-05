@@ -50,6 +50,13 @@ class DoAuth(StatesGroup):
     waiting_for_password = State()
 
 
+class DoRegister(StatesGroup):
+    waiting_for_tg_id = State()
+    waiting_for_login = State()
+    waiting_for_password = State()
+    waiting_for_role = State()
+
+
 class DoAnswer(StatesGroup):
     getting_answer = State()
     confirmation = State()
@@ -312,36 +319,9 @@ async def cmd_logout(message: Message):
 # Хэндлер на команду /register для регистрации новых пользователей. Доступно только владельцу (owner).
 @router.message(Command("register"))
 async def cmd_register(message: Message):
-    # Проверяем, является ли отправитель владельцем
-    user = get_user_by_tg_id(message.from_user.id)
-
-    if user is None or user[4] != 'owner':
-        await message.reply("У вас нет прав для регистрации пользователей.")
-        return
-
-    # Ожидаем аргументы: telegram_id, username, password, role
-    args = message.text.split()
-    if len(args) != 5:
-        await message.reply("Используйте команду: /register <telegram_id> <username> <password> <role>")
-        return
-
-    try:
-        new_telegram_id = int(args[1])
-    except ValueError:
-        await message.reply("telegram_id должен быть числом.")
-        return
-
-    new_username = args[2]
-    new_password = args[3]
-    new_role = args[4]
-    if new_role not in ('owner', 'admin'):
-        await message.reply("Роль должна быть 'owner' или 'admin'.")
-        return
-
-    if register_user(new_telegram_id, new_username, new_password, new_role):
-        await message.reply(f"Пользователь {new_username} зарегистрирован с ролью {new_role}.")
-    else:
-        await message.reply(f"Пользователь с telegram_id {new_telegram_id} уже существует.")
+    button = [[InlineKeyboardButton(text="Зарегистрировать пользователя", callback_data="register_user")]]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=button)
+    await message.answer("Нажмите, чтобы начать регистрацию", reply_markup=keyboard)
 
 
 # Хэндлер на команду /manage
@@ -387,6 +367,131 @@ async def callbacks_admins_list(callback: CallbackQuery):
     else:
         await callback.message.answer("Список админов:", reply_markup=admins_list_keyboard)
     await callback.answer()
+
+
+# ----------------------------------------------------------------------------------------------
+# Зарегистрировать пользователя
+@router.callback_query(F.data.startswith("register_user"))
+async def callbacks_register(callback: CallbackQuery, state: FSMContext):
+    # Проверяем, является ли отправитель владельцем
+    user = get_user_by_tg_id(callback.from_user.id)
+
+    if user is None or user[4] != 'owner':
+        await callback.message.reply("У вас нет прав для управления пользователями.")
+        return
+
+    await callback.message.answer("Введите Telegram ID пользователя (Через TestAttach Bot). Для отмены - /cancel")
+    await state.set_state(DoRegister.waiting_for_tg_id)
+
+
+@router.message(DoRegister.waiting_for_tg_id, F.content_type.in_({'text'}), F.text[0] != "/")
+async def add_tg_id(message: Message, state: FSMContext):
+    tg_id = message.text
+
+    try:
+        new_tg_id = int(tg_id)
+    except ValueError:
+        await message.reply("telegram id должен быть числом. Попробуйте еще раз.")
+        return
+
+    await state.update_data(tg_id=tg_id)
+    await message.answer("Теперь введите username пользователя:")
+    await state.set_state(DoRegister.waiting_for_login)
+
+
+# При ошибочном типе сообщения tg_id
+@router.message(DoRegister.waiting_for_tg_id,
+                F.content_type.in_({'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
+async def incorrect_add_tg_id(message: Message):
+    await message.answer("Напишите числовое значение!")
+
+
+@router.message(DoRegister.waiting_for_login, F.content_type.in_({'text'}), F.text[0] != "/")
+async def add_login(message: Message, state: FSMContext):
+    login = message.text
+    if len(login) < 5:
+        await message.answer("Логин слишком короткий. Попробуйте еще раз.")
+        return
+
+    await state.update_data(login=login)
+    await message.answer("Теперь введите пароль пользователя:")
+    await state.set_state(DoRegister.waiting_for_password)
+
+
+# При ошибочном типе сообщения login
+@router.message(DoRegister.waiting_for_login,
+                F.content_type.in_({'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
+async def incorrect_add_login(message: Message):
+    await message.answer("Напишите текстом!")
+
+
+@router.message(DoRegister.waiting_for_password, F.content_type.in_({'text'}), F.text[0] != "/")
+async def add_password(message: Message, state: FSMContext):
+    password = message.text
+    if len(password) < 5:
+        await message.answer("Пароль слишком короткий. Попробуйте еще раз.")
+        return
+
+
+    await state.update_data(password=password)
+    await message.answer("Теперь введите роль пользователя (owner или admin):")
+    await state.set_state(DoRegister.waiting_for_role)
+
+
+# При ошибочном типе сообщения password
+@router.message(DoRegister.waiting_for_password,
+                F.content_type.in_({'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
+async def incorrect_add_password(message: Message):
+    await message.answer("Напишите текстом!")
+
+
+@router.message(DoRegister.waiting_for_role, F.content_type.in_({'text'}), F.text[0] != "/")
+async def add_role(message: Message, state: FSMContext):
+    role = message.text
+
+    if role not in ('owner', 'admin'):
+        await message.reply("Роль должна быть 'owner' или 'admin'.")
+        return
+
+    data = await state.get_data()
+    tg_id = int(data['tg_id'])
+    login = data['login']
+    password = data['password']
+
+    if register_user(tg_id, login, password, role):
+        await message.reply(f"Пользователь с telegram id {tg_id} зарегистрирован с ролью {role}.")
+    else:
+        await message.reply(f"Пользователь с telegram id {tg_id} уже существует.")
+
+    await state.clear()
+
+
+# При ошибочном типе сообщения role
+@router.message(DoRegister.waiting_for_role,
+                F.content_type.in_({'sticker', 'photo', 'video', 'audio', 'voice', 'document', 'location', 'contact'}))
+async def incorrect_add_role(message: Message):
+    await message.answer("Напишите текстом!")
+
+
+# TODO: Исправить под действия с админами и овнерами (?)
+# @router.callback_query(StateFilter(None), F.data.startswith("common_"))
+# async def callbacks_common_questions(callback: CallbackQuery):
+#     common_questions_id = callback.data.split('_')[1]
+#
+#     # Получаем вопрос и ответ
+#     question, answer = app.db.get_common_question_answer_by_id(common_questions_id)
+#
+#     text = f"{smiles.question_sign}Вопрос: {question}.\n\n{smiles.check_mark} Ответ: {answer}"
+#
+#     buttons = [
+#         [InlineKeyboardButton(text="Редактировать вопрос", callback_data=f"changeq_{common_questions_id}")],
+#         [InlineKeyboardButton(text="Редактировать ответ", callback_data=f"changea_{common_questions_id}")],
+#         [InlineKeyboardButton(text="Удалить вопрос и ответ из списка", callback_data=f"deleteqa_{common_questions_id}")],
+#     ]
+#     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+#
+#     await callback.message.answer(text, reply_markup=keyboard)
+#     await callback.answer()
 
 
 #------------------------------------------------------------------------------------------------------
