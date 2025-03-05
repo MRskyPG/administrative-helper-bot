@@ -1,6 +1,6 @@
 import psycopg2
 import bcrypt
-from app.db import Conn as Conn
+from app.db import Conn, escape_string
 from app.config import owner_tg_id, owner_username, owner_password
 
 
@@ -115,6 +115,26 @@ def get_user_by_tg_id(telegram_id: int):
     user = cursor.fetchone()
     cursor.close()
     return user
+
+
+def get_owners():
+    global Conn
+    cursor = Conn.cursor()
+
+    cursor.execute("SELECT id, telegram_id, created_at FROM users where role='owner'")
+
+    owners = cursor.fetchall()
+    return owners
+
+
+def get_admins():
+    global Conn
+    cursor = Conn.cursor()
+
+    cursor.execute("SELECT id, telegram_id, created_at FROM users where role='admin'")
+
+    admins = cursor.fetchall()
+    return admins
 
 
 # Run insertion
