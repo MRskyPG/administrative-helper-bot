@@ -58,6 +58,10 @@ class DoRegister(StatesGroup):
     waiting_for_role = State()
 
 
+class ManageUser(StatesGroup):
+    confirm_deletion_user = State()
+
+
 class DoAnswer(StatesGroup):
     getting_answer = State()
     confirmation = State()
@@ -144,7 +148,7 @@ def get_places_list():
     return keyboard, buttons
 
 
-def get_users_list(role: str):
+def get_users_list(role: str, your_tg_id: int):
     list_of_users = []
     is_empty = False
 
@@ -162,7 +166,13 @@ def get_users_list(role: str):
         for user in list_of_users:
             created_at = user[2]
 
-            button = [InlineKeyboardButton(text=f"{i}. Tg_id: {user[1]}. Создан: {created_at.strftime('%d-%m-%Y %H:%M')}", callback_data=f"{role}_{user[0]}")]
+            if user[1] != your_tg_id:
+                button = [
+                    InlineKeyboardButton(text=f"{i}. Tg_id: {user[1]}. Создан: {created_at.strftime('%d-%m-%Y %H:%M')}",
+                                         callback_data=f"{role}_{user[0]}")]
+            else:
+                button = [InlineKeyboardButton(text=f"{i}. {smiles.check_mark} (Это Вы). Tg_id: {user[1]}. Создан: {created_at.strftime('%d-%m-%Y %H:%M')}", callback_data=f"{role}_{user[0]}")]
+
             buttons.append(button)
             i += 1
 
@@ -344,7 +354,7 @@ async def cmd_manage(message: Message):
 # Посмотреть список пользователей-владельцев
 @router.callback_query(F.data.startswith("list_owners"))
 async def callbacks_owners_list(callback: CallbackQuery):
-    owners_list_keyboard, _, is_empty = get_users_list("owner")
+    owners_list_keyboard, _, is_empty = get_users_list("owner", callback.from_user.id)
     if is_empty:
         await callback.message.answer("Список владельцев пуст.", reply_markup=owners_list_keyboard)
     else:
@@ -355,7 +365,7 @@ async def callbacks_owners_list(callback: CallbackQuery):
 # Посмотреть список пользователей-админов
 @router.callback_query(F.data.startswith("list_admins"))
 async def callbacks_admins_list(callback: CallbackQuery):
-    admins_list_keyboard, _, is_empty = get_users_list("admin")
+    admins_list_keyboard, _, is_empty = get_users_list("admin", callback.from_user.id)
     if is_empty:
         await callback.message.answer("Список админов пуст.", reply_markup=admins_list_keyboard)
     else:
@@ -388,7 +398,7 @@ async def add_tg_id(message: Message, state: FSMContext):
         await message.reply("telegram id должен быть числом. Попробуйте еще раз.")
         return
 
-    await state.update_data(tg_id=tg_id)
+    await state.update_data(tg_id=new_tg_id)
     await message.answer("Теперь введите username пользователя:")
     await state.set_state(DoRegister.waiting_for_login)
 
@@ -467,25 +477,83 @@ async def incorrect_add_role(message: Message):
     await message.answer("Напишите текстом!")
 
 
-# TODO: Исправить под действия с админами и овнерами (?)
-# @router.callback_query(StateFilter(None), F.data.startswith("common_"))
-# async def callbacks_common_questions(callback: CallbackQuery):
-#     common_questions_id = callback.data.split('_')[1]
-#
-#     # Получаем вопрос и ответ
-#     question, answer = app.db.get_common_question_answer_by_id(common_questions_id)
-#
-#     text = f"{smiles.question_sign}Вопрос: {question}.\n\n{smiles.check_mark} Ответ: {answer}"
-#
-#     buttons = [
-#         [InlineKeyboardButton(text="Редактировать вопрос", callback_data=f"changeq_{common_questions_id}")],
-#         [InlineKeyboardButton(text="Редактировать ответ", callback_data=f"changea_{common_questions_id}")],
-#         [InlineKeyboardButton(text="Удалить вопрос и ответ из списка", callback_data=f"deleteqa_{common_questions_id}")],
-#     ]
-#     keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-#
-#     await callback.message.answer(text, reply_markup=keyboard)
-#     await callback.answer()
+# Действия над пользователем-админом
+@router.callback_query(StateFilter(None), F.data.startswith("admin_"))
+async def callbacks_admin_options(callback: CallbackQuery):
+    admin_id = callback.data.split('_')[1]
+
+    user = app.crypt_db.get_user_by_id(admin_id)
+
+    text = f"Tg_id: {user[1]}. Создан: {user[5].strftime('%d-%m-%Y %H:%M')}. Роль: {user[4]}."
+
+    buttons = [
+        [InlineKeyboardButton(text="Удалить пользователя", callback_data=f"deleteuser_{user[1]}")],
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await callback.message.answer(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+# Действия над пользователем-владельцем
+@router.callback_query(StateFilter(None), F.data.startswith("owner_"))
+async def callbacks_owner_options(callback: CallbackQuery):
+    owner_id = callback.data.split('_')[1]
+
+    user = app.crypt_db.get_user_by_id(owner_id)
+
+    text = f"Tg_id: {user[1]}. Создан: {user[5].strftime('%d-%m-%Y %H:%M')}. Роль: {user[4]}."
+
+    buttons = [
+        [InlineKeyboardButton(text="Удалить пользователя", callback_data=f"deleteuser_{user[1]}")],
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+
+    await callback.message.answer(text, reply_markup=keyboard)
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("deleteuser_"))
+async def delete_user(callback: CallbackQuery, state: FSMContext):
+    user_tg_id = callback.data.split('_')[1]
+
+    check_user_id = app.crypt_db.get_user_by_tg_id(callback.from_user.id)
+
+    if check_user_id[1] == int(user_tg_id):
+        await callback.message.answer("Вы не можете удалить себя!")
+        return
+
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Удалить", callback_data="confirm_delete_user")]])
+
+    await callback.message.answer("Подтвердите удаление. Для отмены /cancel.", reply_markup=keyboard)
+    await state.update_data(user_tg_id=user_tg_id)
+    await state.set_state(ManageUser.confirm_deletion_user)
+
+    await callback.answer()
+
+
+# Было введено что-то, а не выбрано подтверждение удаления
+@router.message(ManageUser.confirm_deletion_user, F.content_type.in_({'text', 'sticker', 'photo', 'video', 'audio', 'voice',
+                                                                        'document', 'location', 'contact'}), F.text[0] != "/")
+async def incorrect_delete_user(message: Message):
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[[InlineKeyboardButton(text="Удалить", callback_data="confirm_delete")]])
+
+    await message.answer("Вы сделали не правильный выбор. Для удаления нажмите кнопку ниже."
+                                  " Для отмены /cancel.", reply_markup=keyboard)
+
+
+@router.callback_query(ManageUser.confirm_deletion_user, F.data.startswith("confirm_delete_user"))
+async def confirm_delete_user(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    user_tg_id = int(data['user_tg_id'])
+
+    app.crypt_db.delete_user_by_tg_id(user_tg_id)
+
+    await callback.message.answer("Пользователь был удален из списка.\nУправлять пользователями - /manage\nНачальное меню - /start")
+    await state.clear()
+
+    await callback.answer()
 
 
 #------------------------------------------------------------------------------------------------------

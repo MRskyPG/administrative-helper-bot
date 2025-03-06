@@ -50,12 +50,13 @@ def register_user(telegram_id: int, username: str, password: str, role: str) -> 
     hashed_password = hash_password(password)
     cursor = Conn.cursor()
     try:
+        new_username = escape_string(username)
         cursor.execute("""
             INSERT INTO users (telegram_id, username, encrypted_password, role)
             VALUES (%s, %s, %s, %s)
             ON CONFLICT (telegram_id) DO NOTHING
             RETURNING id;
-        """, (telegram_id, username, hashed_password, role,))
+        """, (telegram_id, new_username, hashed_password, role,))
         inserted_row = cursor.fetchone()
         Conn.commit()
         # Если запись вставлена, inserted_row не будет None, возвращаем True
@@ -115,6 +116,27 @@ def get_user_by_tg_id(telegram_id: int):
     user = cursor.fetchone()
     cursor.close()
     return user
+
+
+def get_user_by_id(id: str):
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = %s", (id,))
+    user = cursor.fetchone()
+    cursor.close()
+    return user
+
+
+
+def delete_user_by_tg_id(telegram_id: int):
+    global Conn
+
+    cursor = Conn.cursor()
+
+    cursor.execute("DELETE FROM users WHERE telegram_id=%s", (telegram_id,))
+    # Зафиксировать изменение
+    Conn.commit()
+    cursor.close()
 
 
 def get_owners():
