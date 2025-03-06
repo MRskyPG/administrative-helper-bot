@@ -42,7 +42,8 @@ text_about_commands = "Выберите, что вас интересует:" \
         "\n/manage - Управлять пользователями"
 
 
-# Глобальная переменная для второго бота
+# Глобальная переменная для ботов.
+bot_1: aiogram.Bot
 bot_2 : aiogram.Bot
 
 # Для хранения состояний
@@ -83,9 +84,10 @@ class CommonQuestions(StatesGroup):
     change_answer = State()
     delete_both = State()
 
-def set_bot_2(bot):
-    global bot_2
-    bot_2 = bot
+def set_bots(f_bot, s_bot):
+    global bot_1, bot_2
+    bot_1 = f_bot
+    bot_2 = s_bot
 
 
 def make_row_keyboard(items: List[str]) -> ReplyKeyboardMarkup:
@@ -148,7 +150,7 @@ def get_places_list():
     return keyboard, buttons
 
 
-def get_users_list(role: str, your_tg_id: int):
+async def get_users_list(role: str, your_tg_id: int):
     list_of_users = []
     is_empty = False
 
@@ -166,9 +168,12 @@ def get_users_list(role: str, your_tg_id: int):
         for user in list_of_users:
             created_at = user[2]
 
+            user_acc: types.User = await bot_1.get_chat(user[1])
+            user_fullname = user_acc.full_name
+
             if user[1] != your_tg_id:
                 button = [
-                    InlineKeyboardButton(text=f"{i}. Tg_id: {user[1]}. Создан: {created_at.strftime('%d-%m-%Y %H:%M')}",
+                    InlineKeyboardButton(text=f"{i}. {user_fullname}. Tg_id: {user[1]}. Создан: {created_at.strftime('%d-%m-%Y %H:%M')}",
                                          callback_data=f"{role}_{user[0]}")]
             else:
                 button = [InlineKeyboardButton(text=f"{i}. {smiles.check_mark} (Это Вы). Tg_id: {user[1]}. Создан: {created_at.strftime('%d-%m-%Y %H:%M')}", callback_data=f"{role}_{user[0]}")]
@@ -354,7 +359,7 @@ async def cmd_manage(message: Message):
 # Посмотреть список пользователей-владельцев
 @router.callback_query(F.data.startswith("list_owners"))
 async def callbacks_owners_list(callback: CallbackQuery):
-    owners_list_keyboard, _, is_empty = get_users_list("owner", callback.from_user.id)
+    owners_list_keyboard, _, is_empty = await get_users_list("owner", callback.from_user.id)
     if is_empty:
         await callback.message.answer("Список владельцев пуст.", reply_markup=owners_list_keyboard)
     else:
@@ -365,7 +370,7 @@ async def callbacks_owners_list(callback: CallbackQuery):
 # Посмотреть список пользователей-админов
 @router.callback_query(F.data.startswith("list_admins"))
 async def callbacks_admins_list(callback: CallbackQuery):
-    admins_list_keyboard, _, is_empty = get_users_list("admin", callback.from_user.id)
+    admins_list_keyboard, _, is_empty = await get_users_list("admin", callback.from_user.id)
     if is_empty:
         await callback.message.answer("Список админов пуст.", reply_markup=admins_list_keyboard)
     else:

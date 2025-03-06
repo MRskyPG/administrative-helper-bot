@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher, BaseMiddleware, types
 
 #Из пакетов проекта
 from app.config import bot_token, public_bot_token
-from app.handlers import router, set_commands_list_private, set_bot_2, DoAuth
+from app.handlers import router, set_commands_list_private, set_bots, DoAuth
 from app.public_handlers import public_router, set_commands_list_public
 from app.db import Conn, shutdown_db
 from app.crypt_db import get_auth_status, get_user_by_tg_id
@@ -50,7 +50,8 @@ class AuthMiddleware(BaseMiddleware):
 bot = Bot(token=bot_token)
 public_bot = Bot(token=public_bot_token)
 
-set_bot_2(public_bot)
+# Установим в глобальные переменные ботов для использования в другом пакете
+set_bots(bot, public_bot)
 
 dp = Dispatcher()
 public_dp = Dispatcher()
