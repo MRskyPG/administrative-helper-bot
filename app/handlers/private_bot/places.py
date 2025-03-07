@@ -70,6 +70,7 @@ def execute_scheduled_tasks():
 # Запускаем фоновую задачу для выполнения запланированных задач
 threading.Thread(target=execute_scheduled_tasks, daemon=True).start()
 
+
 def get_places_list():
     list_of_places = db.get_places_from_list()
 
@@ -162,6 +163,7 @@ async def confirm_date_now(message: Message, state: FSMContext):
     await message.answer("Место обновлено!", reply_markup=ReplyKeyboardRemove())
     await state.clear()
 
+
 # Новая дата
 @router_places.message(GetPlace.waiting_for_confirmation, F.text == confirmations_date[1])
 async def confirm_set_new_date(message: Message, state: FSMContext):
@@ -191,6 +193,7 @@ async def process_simple_calendar(callback_query: CallbackQuery, callback_data: 
 
         await state.update_data(date=date)
         await callback_query.answer()
+
 
 @router_places.message(GetPlace.waiting_for_time, F.content_type.in_({'text'}))
 async def set_new_time(message: Message, state: FSMContext):
@@ -234,7 +237,6 @@ async def cmd_get_place(message: Message, state: FSMContext):
     await message.answer(text=text_about_commands)
 
 
-# ------------------------------------------------------------------------------------
 # Посмотреть список доступных мест
 @router_places.message(Command("placeslist"))
 async def cmd_get_places_list(message: Message, state: FSMContext):
@@ -267,6 +269,7 @@ async def action_with_place_from_list(callback: CallbackQuery, state: FSMContext
 
     await callback.message.answer(text, reply_markup=keyboard)
     await callback.answer()
+
 
 @router_places.callback_query(F.data.startswith("deleteplacefromlist_"))
 async def delete_place_from_list(callback: CallbackQuery, state: FSMContext):
@@ -304,8 +307,8 @@ async def confirm_deletion_place_from_list(callback: CallbackQuery, state: FSMCo
 
     await callback.answer()
 
-# ------------------------------------------------------------------------------------
-# Работа с очередь запланированных для добавления мест
+
+# Работа с очередью запланированных для добавления мест
 # Хэндлер на команду /placesqueue
 @router_places.message(Command("placesqueue"))
 async def cmd_get_places_queue(message: Message, state: FSMContext):
