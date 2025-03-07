@@ -4,8 +4,10 @@ import psycopg2
 import sys
 from app.config import postgres_user, postgres_password, postgres_database
 
+
 def escape_string(s: str):
     return s.replace("'", "''")
+
 
 def connect_db():
     try:
@@ -17,7 +19,8 @@ def connect_db():
         print(f"Error with connection db: {e}")
         sys.exit(1)
 
-#Соединение с базой данных с контейнера
+
+# Соединение с базой данных с контейнера
 Conn = connect_db()
 
 
@@ -33,6 +36,7 @@ def set_place(place: str):
     Conn.commit()
     cursor.close()
 
+
 def get_place() -> str:
     global Conn
     cursor = Conn.cursor()
@@ -44,6 +48,7 @@ def get_place() -> str:
 
     cursor.close()
     return place
+
 
 # Функции для всех добавленных мест (список)
 def add_place_to_list(place: str):
@@ -113,6 +118,7 @@ def get_places_from_queue():
     cursor.close()
     return places
 
+
 # удаление места из очереди по ID
 def remove_place_from_queue(place_id: int):
     global Conn
@@ -120,6 +126,7 @@ def remove_place_from_queue(place_id: int):
     cursor.execute("DELETE FROM places_queue WHERE id = %s", (place_id,))
     Conn.commit()
     cursor.close()
+
 
 def get_places_from_queue_by_id(id: int):
     global Conn
@@ -135,10 +142,8 @@ def get_places_from_queue_by_id(id: int):
     else:
         raise ValueError(f"No places found for places_queue ID: {id}")
 
-#-------------------------------------------------------------------------
 
-#Вопросы сотрудников
-
+# Вопросы сотрудников
 def add_staff_question(question: str, chat_id: int, full_name):
     global Conn
     #TODO: проверка на sql атаки
@@ -149,6 +154,7 @@ def add_staff_question(question: str, chat_id: int, full_name):
     # Зафиксировать изменение
     Conn.commit()
     cursor.close()
+
 
 def get_staff_questions() -> List[Tuple[int, int, str, str]]:
     global Conn
@@ -171,6 +177,7 @@ def update_answer_by_id(answer: str, id: int):
     Conn.commit()
     cursor.close()
 
+
 def get_chat_id_by_id(id: int):
     global Conn
     cursor = Conn.cursor()
@@ -183,6 +190,7 @@ def get_chat_id_by_id(id: int):
         return data[0]  # Возвращаем chat_id
     else:
         raise ValueError(f"No chat_id found for question ID: {id}")
+
 
 def get_question_by_id(id: int) -> str:
     global Conn
@@ -208,7 +216,6 @@ def delete_question_by_id(id: int):
     Conn.commit()
     cursor.close()
 
-#--------------------------------------------------------------------
 
 def add_common_questions(question: str, answer: str):
     global Conn
@@ -221,6 +228,7 @@ def add_common_questions(question: str, answer: str):
     # Зафиксировать изменение
     Conn.commit()
     cursor.close()
+
 
 def get_common_question_answer_by_id(id: int):
     global Conn
@@ -236,6 +244,7 @@ def get_common_question_answer_by_id(id: int):
     else:
         raise ValueError(f"No question found for question ID: {id}")
 
+
 def get_common_questions() -> List[Tuple[int, str, str]]:
     global Conn
     cursor = Conn.cursor()
@@ -243,6 +252,7 @@ def get_common_questions() -> List[Tuple[int, str, str]]:
 
     questions = cursor.fetchall()
     return questions
+
 
 def update_common_answer_by_id(answer: str, id: int):
     global Conn
@@ -255,6 +265,7 @@ def update_common_answer_by_id(answer: str, id: int):
     Conn.commit()
     cursor.close()
 
+
 def update_common_question_by_id(question: str, id: int):
     global Conn
 
@@ -266,6 +277,7 @@ def update_common_question_by_id(question: str, id: int):
     Conn.commit()
     cursor.close()
 
+
 def delete_common_questions_by_id(id: int):
     global Conn
 
@@ -275,7 +287,7 @@ def delete_common_questions_by_id(id: int):
     # Зафиксировать изменение
     Conn.commit()
     cursor.close()
-#-------------------------------------------------------------------------
+
 
 def shutdown_db(conn):
     try:
