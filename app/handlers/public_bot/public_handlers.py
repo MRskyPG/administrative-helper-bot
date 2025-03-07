@@ -9,7 +9,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.state import StatesGroup, State
 
 # Мои библиотеки
-import app.db
+import app.database.db
 import app.gpt as gpt
 import app.smiles as smiles
 

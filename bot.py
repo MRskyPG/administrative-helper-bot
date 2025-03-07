@@ -8,7 +8,6 @@ from aiogram import Bot, Dispatcher, BaseMiddleware, types, Router
 from app.config import bot_token, public_bot_token
 
 # Хендлеры
-
 from app.handlers.private_bot.authorization import router_auth, DoAuth
 from app.handlers.private_bot.management import router_manage, set_private_bot
 from app.handlers.private_bot.places import router_places
@@ -16,8 +15,8 @@ from app.handlers.private_bot.questions import router_questions, set_public_bot
 from app.handlers.private_bot.handlers import router, set_commands_list_private
 from app.handlers.public_bot.public_handlers import public_router, set_commands_list_public
 
-from app.db import Conn, shutdown_db
-from app.crypt_db import get_auth_status, get_user_by_tg_id
+from app.database.db import Conn, shutdown_db
+from app.database.crypt_db import get_auth_status, get_user_by_tg_id
 from aiogram.fsm.context import FSMContext
 
 

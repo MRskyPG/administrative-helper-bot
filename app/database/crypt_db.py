@@ -1,6 +1,6 @@
 import psycopg2
 import bcrypt
-from app.db import Conn, escape_string
+from app.database.db import Conn, escape_string
 from app.config import owner_tg_id, owner_username, owner_password
 
 

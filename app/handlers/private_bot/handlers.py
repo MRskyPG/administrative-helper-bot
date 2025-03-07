@@ -1,4 +1,5 @@
 import aiogram
+import time
 from aiogram import F, Router
 from aiogram.filters.command import Command
 from aiogram.types import Message, BotCommand,\
@@ -8,7 +9,7 @@ from aiogram.fsm.context import FSMContext
 
 
 # Мои библиотеки
-from app.crypt_db import get_user_by_tg_id, get_auth_status
+from app.database.crypt_db import get_user_by_tg_id, get_auth_status
 import app.smiles as smiles
 
 

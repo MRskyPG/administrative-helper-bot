@@ -18,7 +18,7 @@ import time
 import pytz
 import locale
 
-import app.db as db
+import app.database.db as db
 import app.smiles as smiles
 
 

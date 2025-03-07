@@ -6,7 +6,7 @@ from aiogram.fsm.state import StatesGroup, State
 import time
 
 from app.handlers.private_bot.handlers import text_about_commands
-import app.crypt_db as db
+import app.database.crypt_db as db
 import app.smiles as smiles
 
 

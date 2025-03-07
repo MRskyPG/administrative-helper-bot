@@ -8,7 +8,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import StateFilter
 from typing import List
 
-import app.db as db
+import app.database.db as db
 import app.smiles as smiles
 
 
