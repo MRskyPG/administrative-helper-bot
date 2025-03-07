@@ -9,7 +9,7 @@ from aiogram.filters import StateFilter
 from aiogram.fsm.state import StatesGroup, State
 
 # Мои библиотеки
-import app.database.db
+import app.database.db as db
 import app.gpt as gpt
 import app.smiles as smiles
 
@@ -73,7 +73,7 @@ async def question_for_gpt(message: Message, state: FSMContext):
 # Хэндлер на команду /getplace
 @public_router.message(Command("getplace"))
 async def cmd_get_place(message: Message):
-    place = app.db.get_place()
+    place = db.get_place()
     await message.answer(f'Информация о местонахождении О.Е.Аврунева: {place}')
     time.sleep(1)
     await message.answer(text=text_about_commands)
@@ -92,7 +92,7 @@ async def set_new_place(message: Message, state: FSMContext):
         await message.answer(f"Попробуйте написать ваш вопрос более подробно {smiles.pencil}")
     else:
         question = message.text
-        app.db.add_staff_question(question, message.from_user.id, message.from_user.full_name)
+        db.add_staff_question(question, message.from_user.id, message.from_user.full_name)
         await message.reply(f"Вопрос отправлен! Ожидайте ответа {smiles.clock}")
         await state.clear()
 
@@ -105,7 +105,7 @@ async def incorrect_set_new_place(message: Message):
 
 @public_router.message(StateFilter(None), Command("common_questions"))
 async def cmd_common(message: Message):
-    common_questions = app.db.get_common_questions()
+    common_questions = db.get_common_questions()
 
     if len(common_questions) != 0:
         buttons = []
@@ -128,7 +128,7 @@ async def callbacks_common_questions(callback: CallbackQuery):
     common_questions_id = callback.data.split('_')[1]
 
     # Получаем вопрос и ответ
-    question, answer = app.db.get_common_question_answer_by_id(common_questions_id)
+    question, answer = db.get_common_question_answer_by_id(common_questions_id)
 
     text = f"{smiles.question_sign}Вопрос: {question}.\n\n{smiles.check_mark} Ответ: {answer}"
 
