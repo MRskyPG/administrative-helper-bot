@@ -8,7 +8,7 @@ from aiogram import Bot, Dispatcher, BaseMiddleware, types, Router
 from app.config import bot_token, public_bot_token
 
 # Хендлеры
-from app.handlers.private_bot.authorization import router_auth, DoAuth
+from app.handlers.private_bot.authorization import router_auth, DoAuth, set_bot
 from app.handlers.private_bot.management import router_manage, set_private_bot
 from app.handlers.private_bot.places import router_places
 from app.handlers.private_bot.questions import router_questions, set_public_bot
@@ -60,6 +60,7 @@ public_bot = Bot(token=public_bot_token)
 # Установим в глобальные переменные ботов для использования в другом пакете
 set_private_bot(bot)
 set_public_bot(public_bot)
+set_bot(bot)
 
 dp = Dispatcher()
 public_dp = Dispatcher()
