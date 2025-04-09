@@ -1,17 +1,13 @@
-CREATE TABLE IF NOT EXISTS places (
-    place VARCHAR(255) NOT NULL
-);
-
-CREATE TABLE IF NOT EXISTS places_list (
+-- Таблица для хранения данных о местах:
+-- status = 'current' – текущее место,
+-- status = 'list' – добавленные ранее места,
+-- status = 'queued' – записи очереди на обновление.
+CREATE TABLE places (
     id SERIAL PRIMARY KEY,
-    place VARCHAR(255) NOT NULL,
+    place VARCHAR NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('current', 'list', 'queued')),
+    execute_at TIMESTAMP,  -- используется только для записей со статусом 'queued'
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS places_queue (
-    id SERIAL PRIMARY KEY,
-    place VARCHAR(255) NOT NULL,
-    execute_at TIMESTAMP NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS questions (

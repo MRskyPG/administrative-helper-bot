@@ -20,7 +20,7 @@ import locale
 
 import app.database.db as db
 import app.smiles as smiles
-
+from app.handlers.private_bot.handlers import text_about_commands
 
 router_places = Router()
 
@@ -60,9 +60,9 @@ def execute_scheduled_tasks():
         for place in places:
             place_id, place_name, execute_at = place
             if now >= execute_at:
-                db.set_place(place_name)  # Обновляем место в БД (таблица с одним местом, которое выводится и в публичном боте)
+                db.set_place(place_name)  # Обновляем место в БД (таблица с одним местом, которое выводится и в публичном боте), (status = 'current')
                 # Добавить и в таблицу всех мест.
-                db.add_place_to_list(place_name)
+                db.add_place_to_list(place_name) #(status = 'list')
                 print(f"Место '{place_name}' добавлено в БД.")
                 db.remove_place_from_queue(place_id)  # Удаляем выполненную задачу
         time.sleep(60)  # Проверяем каждые 60 сек
