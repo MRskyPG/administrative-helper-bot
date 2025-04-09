@@ -10,18 +10,22 @@ def insert_owner():
     if owner_exists():
         print("Owner already exists in DB")
         return
-    else:
-        hashed_password = hash_password(owner_password)
-        cursor = Conn.cursor()
 
-        cursor.execute("""
-            INSERT INTO users (telegram_id, username, encrypted_password, role)
-            VALUES (%s, %s, %s, 'owner')
-        """, (owner_tg_id, owner_username, hashed_password,))
+    hashed_password = hash_password(owner_password)
+    cursor = Conn.cursor()
 
-        Conn.commit()
+    cursor.execute("""
+        INSERT INTO users (telegram_id, username, encrypted_password, role)
+        VALUES (%s, %s, %s, 'owner')
+        ON CONFLICT (telegram_id) DO NOTHING;
+    """, (owner_tg_id, owner_username, hashed_password))
+    Conn.commit()
 
-        print("Owner was added to DB")
+    # Установка статуса авторизации
+    set_auth_status(owner_tg_id, False)
+    print("Owner was added to DB")
+    cursor.close()
+
 
 def owner_exists() -> bool:
     global Conn
@@ -47,20 +51,28 @@ def verify_password(hashed_password: str, provided_password: str) -> bool:
 
 def register_user(telegram_id: int, username: str, password: str, role: str) -> bool:
     global Conn
-    hashed_password = hash_password(password)
     cursor = Conn.cursor()
     try:
+        # Проверяем, существует ли уже пользователь с таким telegram_id
+        cursor.execute("SELECT role FROM users WHERE telegram_id = %s", (telegram_id,))
+        result = cursor.fetchone()
+        if result is not None:
+            # Если уже есть пользователь с telegram_id, то выводим сообщение и не регистрируем нового
+            print("Пользователь уже зарегистрирован.")
+            return False
+
+        hashed_password = hash_password(password)
         new_username = escape_string(username)
         cursor.execute("""
             INSERT INTO users (telegram_id, username, encrypted_password, role)
             VALUES (%s, %s, %s, %s)
-            ON CONFLICT (telegram_id) DO NOTHING
-            RETURNING id;
-        """, (telegram_id, new_username, hashed_password, role,))
-        inserted_row = cursor.fetchone()
+            ON CONFLICT (telegram_id) DO NOTHING;
+        """, (telegram_id, new_username, hashed_password, role))
         Conn.commit()
-        # Если запись вставлена, inserted_row не будет None, возвращаем True
-        return inserted_row is not None
+
+        # Установка статуса авторизации сразу после регистрации
+        set_auth_status(telegram_id, False)
+        return True
     except psycopg2.Error as e:
         Conn.rollback()
         print(f"Ошибка при регистрации: {e}")
@@ -71,19 +83,17 @@ def register_user(telegram_id: int, username: str, password: str, role: str) -> 
 
 def set_auth_status(telegram_id: int, status: bool):
     """
-    Устанавливает статус авторизации пользователя.
-    Если записи для данного telegram_id ещё нет, вставляет её,
-    иначе обновляет существующую.
+    Устанавливает статус авторизации по telegram_id через подзапрос.
     """
     global Conn
     cursor = Conn.cursor()
     try:
         cursor.execute("""
-            INSERT INTO user_auth (telegram_id, auth_status, updated_at)
-            VALUES (%s, %s, CURRENT_TIMESTAMP)
-            ON CONFLICT (telegram_id) DO UPDATE
+            INSERT INTO user_auth (user_id, auth_status, updated_at)
+            VALUES ((SELECT id FROM users WHERE telegram_id = %s), %s, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id) DO UPDATE
             SET auth_status = EXCLUDED.auth_status, updated_at = CURRENT_TIMESTAMP;
-        """, (telegram_id, status,))
+        """, (telegram_id, status))
         Conn.commit()
     except psycopg2.Error as e:
         Conn.rollback()
@@ -94,12 +104,15 @@ def set_auth_status(telegram_id: int, status: bool):
 
 def get_auth_status(telegram_id: int) -> bool:
     """
-    Возвращает True, если пользователь с данным telegram_id авторизован, иначе False.
+    Возвращает статус авторизации по telegram_id через подзапрос.
     """
     global Conn
     cursor = Conn.cursor()
     try:
-        cursor.execute("SELECT auth_status FROM user_auth WHERE telegram_id = %s", (telegram_id,))
+        cursor.execute("""
+            SELECT auth_status FROM user_auth
+            WHERE user_id = (SELECT id FROM users WHERE telegram_id = %s)
+        """, (telegram_id,))
         result = cursor.fetchone()
         return result[0] if result else False
     except psycopg2.Error as e:

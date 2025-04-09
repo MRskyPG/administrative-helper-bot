@@ -2,7 +2,7 @@
 -- status = 'current' – текущее место,
 -- status = 'list' – добавленные ранее места,
 -- status = 'queued' – записи очереди на обновление.
-CREATE TABLE places (
+CREATE TABLE IF NOT EXISTS places (
     id SERIAL PRIMARY KEY,
     place VARCHAR NOT NULL,
     status VARCHAR(20) NOT NULL CHECK (status IN ('current', 'list', 'queued')),
@@ -10,6 +10,7 @@ CREATE TABLE places (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Таблица вопросов пользователей
 CREATE TABLE IF NOT EXISTS questions (
     id SERIAL PRIMARY KEY,
     chat_id INTEGER,
@@ -18,12 +19,14 @@ CREATE TABLE IF NOT EXISTS questions (
     answer VARCHAR(255)
 );
 
+-- Таблица общих вопросов-ответов
 CREATE TABLE IF NOT EXISTS common_questions (
     id SERIAL PRIMARY KEY,
     question VARCHAR(255),
     answer VARCHAR(255)
 );
 
+-- Таблица пользователей
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     telegram_id BIGINT UNIQUE NOT NULL,
@@ -33,8 +36,9 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Таблица авторизации
 CREATE TABLE IF NOT EXISTS user_auth (
-    telegram_id BIGINT PRIMARY KEY,
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
     auth_status BOOLEAN NOT NULL DEFAULT FALSE,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

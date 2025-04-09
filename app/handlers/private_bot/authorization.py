@@ -36,7 +36,7 @@ async def cmd_auth(message: Message, state: FSMContext):
     user = db.get_user_by_tg_id(message.from_user.id)
     if user is None:
         await message.answer(
-            "Вы не зарегистрированы в системе. Доступ запрещен.")
+            "Вы не зарегистрированы в системе. Обратитесь к владельцу для регистрации.")
         return
 
     await message.answer("Введите ваш никнейм (логин). Для отмены - /cancel")
@@ -112,7 +112,7 @@ async def cmd_logout(message: Message):
     user = db.get_user_by_tg_id(message.from_user.id)
     if user is None:
         await message.answer(
-            "Вы не зарегистрированы в системе. Пожалуйста, обратитесь к администратору для регистрации.")
+            "Вы не зарегистрированы в системе. Пожалуйста, обратитесь к владельцу для регистрации.")
         return
 
     if not db.get_auth_status(message.from_user.id):

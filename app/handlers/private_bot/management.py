@@ -161,7 +161,8 @@ async def add_tg_id(message: Message, state: FSMContext):
         user_acc: types.User = await bot_1.get_chat(new_tg_id)
     except TelegramBadRequest as e:
         if "chat not found" in str(e):
-            await message.reply("Ошибка: пользователь не найден в Telegram. Проверьте корректность данных.")
+            await message.reply("Ошибка: Чат с пользователем для регистрации не найден. Попросите его "
+                                "написать любое сообщение этому боту.")
             return
 
     await state.update_data(tg_id=new_tg_id)
@@ -228,12 +229,26 @@ async def add_role(message: Message, state: FSMContext):
     login = data['login']
     password = data['password']
 
+    # Проверяем, существует ли уже пользователь с таким telegram_id и ролью owner
+    existing_user = db.get_user_by_tg_id(tg_id)
+    if existing_user:
+        if existing_user[4] == 'owner' and role == 'admin':
+            await message.reply(f"Пользователь с Telegram ID {tg_id} уже зарегистрирован как владелец (owner). "
+                                f"Невозможно зарегистрировать его как админа.")
+            await state.clear()
+            return
+        else:
+            await message.reply(f"Пользователь с Telegram ID {tg_id} уже зарегистрирован с ролью {existing_user[4]}.")
+            await state.clear()
+            return
+
     if db.register_user(tg_id, login, password, role):
-        await message.reply(f"Пользователь с telegram id {tg_id} зарегистрирован с ролью {role}.")
+        await message.reply(f"Пользователь с Telegram ID {tg_id} зарегистрирован с ролью {role}.")
     else:
-        await message.reply(f"Пользователь с telegram id {tg_id} уже существует.")
+        await message.reply(f"Произошла ошибка при регистрации пользователя с Telegram ID {tg_id}. Попробуйте снова.")
 
     await state.clear()
+
 
 
 # При ошибочном типе сообщения role
