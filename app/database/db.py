@@ -27,21 +27,25 @@ Conn = connect_db()
 # Установка места
 def set_place(place: str):
     """
-        Обновляет текущее место. Если запись со статусом 'current' отсутствует, вставляет новую.
-    """
+            Обновляет текущее место. Если запись со статусом 'current' отсутствует, вставляет новую.
+        """
     global Conn
-
     cursor = Conn.cursor()
     cplace = escape_string(place)
-    # Пытаемся обновить запись с текущим местом
-    cursor.execute("UPDATE places SET place = %s, created_at = CURRENT_TIMESTAMP WHERE status = 'current'",
-                   (cplace,))
-    if cursor.rowcount == 0:
-        # Если записи не существует, вставляем новую запись со статусом 'current'
-        cursor.execute("INSERT INTO places (place, status) VALUES (%s, 'current')", (place,))
-    #Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        # Пытаемся обновить запись с текущим местом
+        cursor.execute("UPDATE places SET place = %s, created_at = CURRENT_TIMESTAMP WHERE status = 'current'", (cplace,))
+        if cursor.rowcount == 0:
+            # Если записи не существует, вставляем новую запись со статусом 'current'
+            cursor.execute("INSERT INTO places (place, status) VALUES (%s, 'current')", (place,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        # Откат
+        Conn.rollback()
+        print(f"[ERROR] set_place: {e}")
+    finally:
+        cursor.close()
 
 
 def get_place() -> str:
@@ -64,20 +68,24 @@ def add_place_to_list(place: str):
     """
     global Conn
     cursor = Conn.cursor()
+    try:
+        # Проверяем, существует ли уже такое место со статусом 'list'
+        cursor.execute("SELECT id FROM places WHERE place = %s AND status = 'list'", (place,))
+        existing = cursor.fetchone()
 
-    # Проверяем, существует ли уже такое место со статусом 'list'
-    cursor.execute("SELECT id FROM places WHERE place = %s AND status = 'list'", (place,))
-    existing = cursor.fetchone()
+        if existing:
+            # Обновляем дату добавления
+            cursor.execute("UPDATE places SET created_at = CURRENT_TIMESTAMP WHERE id = %s", (existing[0],))
+        else:
+            # Вставляем новое
+            cursor.execute("INSERT INTO places (place, status) VALUES (%s, 'list')", (place,))
 
-    if existing:
-        # Обновляем дату добавления
-        cursor.execute("UPDATE places SET created_at = CURRENT_TIMESTAMP WHERE id = %s", (existing[0],))
-    else:
-        # Вставляем новое
-        cursor.execute("INSERT INTO places (place, status) VALUES (%s, 'list')", (place,))
-
-    Conn.commit()
-    cursor.close()
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] add_place_to_list: {e}")
+    finally:
+        cursor.close()
 
 
 def get_places_from_list():
@@ -98,10 +106,17 @@ def delete_place_from_list(place_id: int):
     """
     global Conn
     cursor = Conn.cursor()
-    cursor.execute("DELETE FROM places WHERE id = %s AND status = 'list'", (place_id,))
-    Conn.commit()
-    result = cursor.rowcount > 0
-    cursor.close()
+    try:
+        cursor.execute("DELETE FROM places WHERE id = %s AND status = 'list'", (place_id,))
+        Conn.commit()
+        result = cursor.rowcount > 0
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] delete_place_from_list: {e}")
+        result = False
+    finally:
+        cursor.close()
+
     return result
 
 
@@ -129,23 +144,30 @@ def add_place_to_queue(place: str, execute_at: datetime):
     """
     global Conn
     cursor = Conn.cursor()
-    cursor.execute("INSERT INTO places (place, status, execute_at) VALUES (%s, 'queued', %s) ON CONFLICT DO NOTHING",
-                   (place, execute_at))
-    Conn.commit()
-    cursor.close()
-
+    try:
+        cursor.execute("INSERT INTO places (place, status, execute_at) VALUES (%s, 'queued', %s) ON CONFLICT DO NOTHING",
+                       (place, execute_at))
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] add_place_to_queue: {e}")
+    finally:
+        cursor.close()
 
 # получение всех мест из очереди
 def get_places_from_queue():
-    """
-        Возвращает все записи из очереди (status = 'queued'), отсортированные по execute_at.
-    """
     global Conn
     cursor = Conn.cursor()
-    cursor.execute("SELECT id, place, execute_at FROM places WHERE status = 'queued' ORDER BY execute_at")
-    places = cursor.fetchall()
-    cursor.close()
-    return places
+    try:
+        cursor.execute("SELECT id, place, execute_at FROM places WHERE status = 'queued' ORDER BY execute_at")
+        places = cursor.fetchall()
+        return places
+    except psycopg2.Error as e:
+        print(f"Ошибка при получении очереди мест: {e}")
+        return []
+    finally:
+        cursor.close()
+
 
 
 # удаление места из очереди по ID
@@ -155,9 +177,14 @@ def remove_place_from_queue(place_id: int):
     """
     global Conn
     cursor = Conn.cursor()
-    cursor.execute("DELETE FROM places WHERE id = %s AND status = 'queued'", (place_id,))
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("DELETE FROM places WHERE id = %s AND status = 'queued'", (place_id,))
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] remove_place_from_queue: {e}")
+    finally:
+        cursor.close()
 
 
 def get_places_from_queue_by_id(id: int):
@@ -181,11 +208,15 @@ def add_staff_question(question: str, chat_id: int, full_name):
     #TODO: проверка на sql атаки
     cursor = Conn.cursor()
     cquestion = escape_string(question)
-
-    cursor.execute("INSERT INTO questions(question, chat_id, name) VALUES(%s, %s, %s)", (cquestion, chat_id, full_name, ))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("INSERT INTO questions(question, chat_id, name) VALUES(%s, %s, %s)", (cquestion, chat_id, full_name, ))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] add_staff_question: {e}")
+    finally:
+        cursor.close()
 
 
 def get_staff_questions() -> List[Tuple[int, int, str, str]]:
@@ -203,11 +234,15 @@ def update_answer_by_id(answer: str, id: int):
 
     cursor = Conn.cursor()
     canswer = escape_string(answer)
-
-    cursor.execute("UPDATE questions SET answer=%s WHERE id=%s", (canswer, id,))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("UPDATE questions SET answer=%s WHERE id=%s", (canswer, id,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] update_answer_by_id: {e}")
+    finally:
+        cursor.close()
 
 
 def get_chat_id_by_id(id: int):
@@ -242,24 +277,35 @@ def delete_question_by_id(id: int):
     global Conn
 
     cursor = Conn.cursor()
-
-    cursor.execute("DELETE FROM questions WHERE id=%s", (id,))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("DELETE FROM questions WHERE id=%s", (id,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] delete_question_by_id: {e}")
+    finally:
+        cursor.close()
 
 
 def add_common_questions(question: str, answer: str):
     global Conn
-    #TODO: проверка на sql атаки
     cursor = Conn.cursor()
     cquestion = escape_string(question)
     canswer = escape_string(answer)
 
-    cursor.execute("INSERT INTO common_questions(question, answer) VALUES(%s, %s)", (cquestion, canswer, ))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("""
+            INSERT INTO common_questions (question, answer)
+            VALUES (%s, %s)
+        """, (cquestion, canswer))
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] add_common_questions: {e}")
+    finally:
+        cursor.close()
+
 
 
 def get_common_question_answer_by_id(id: int):
@@ -291,11 +337,15 @@ def update_common_answer_by_id(answer: str, id: int):
 
     cursor = Conn.cursor()
     canswer = escape_string(answer)
-
-    cursor.execute("UPDATE common_questions SET answer=%s WHERE id=%s", (canswer, id,))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("UPDATE common_questions SET answer=%s WHERE id=%s", (canswer, id,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] update_common_answer_by_id: {e}")
+    finally:
+        cursor.close()
 
 
 def update_common_question_by_id(question: str, id: int):
@@ -303,22 +353,30 @@ def update_common_question_by_id(question: str, id: int):
 
     cursor = Conn.cursor()
     cquestion = escape_string(question)
-
-    cursor.execute("UPDATE common_questions SET question=%s WHERE id=%s", (cquestion, id,))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("UPDATE common_questions SET question=%s WHERE id=%s", (cquestion, id,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] update_common_question_by_id: {e}")
+    finally:
+        cursor.close()
 
 
 def delete_common_questions_by_id(id: int):
     global Conn
 
     cursor = Conn.cursor()
-
-    cursor.execute("DELETE FROM common_questions WHERE id=%s", (id,))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("DELETE FROM common_questions WHERE id=%s", (id,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] delete_common_questions_by_id: {e}")
+    finally:
+        cursor.close()
 
 
 def shutdown_db(conn):

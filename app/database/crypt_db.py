@@ -13,18 +13,22 @@ def insert_owner():
 
     hashed_password = hash_password(owner_password)
     cursor = Conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO users (telegram_id, username, encrypted_password, role)
+            VALUES (%s, %s, %s, 'owner')
+            ON CONFLICT (telegram_id) DO NOTHING;
+        """, (owner_tg_id, owner_username, hashed_password))
+        Conn.commit()
 
-    cursor.execute("""
-        INSERT INTO users (telegram_id, username, encrypted_password, role)
-        VALUES (%s, %s, %s, 'owner')
-        ON CONFLICT (telegram_id) DO NOTHING;
-    """, (owner_tg_id, owner_username, hashed_password))
-    Conn.commit()
-
-    # Установка статуса авторизации
-    set_auth_status(owner_tg_id, False)
-    print("Owner was added to DB")
-    cursor.close()
+        # Установка статуса авторизации
+        set_auth_status(owner_tg_id, False)
+        print("Owner was added to DB")
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] insert_owner: {e}")
+    finally:
+        cursor.close()
 
 
 def owner_exists() -> bool:
@@ -145,11 +149,15 @@ def delete_user_by_tg_id(telegram_id: int):
     global Conn
 
     cursor = Conn.cursor()
-
-    cursor.execute("DELETE FROM users WHERE telegram_id=%s", (telegram_id,))
-    # Зафиксировать изменение
-    Conn.commit()
-    cursor.close()
+    try:
+        cursor.execute("DELETE FROM users WHERE telegram_id=%s", (telegram_id,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] delete_user_by_tg_id: {e}")
+    finally:
+        cursor.close()
 
 
 def get_owners():
