@@ -7,6 +7,7 @@ from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKe
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import StateFilter
 
+from app.handlers.private_bot.handlers import text_about_commands
 import app.database.crypt_db as db
 import app.smiles as smiles
 
