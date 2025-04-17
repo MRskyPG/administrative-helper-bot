@@ -1,4 +1,5 @@
 import aiogram
+import time
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.command import Command
@@ -142,14 +143,17 @@ async def cmd_ask(message: Message, state: FSMContext):
 
         i = 1
 
+        messages = "Выберите интересующий вопрос и посмотрите ответ:\n\n"
+
         for data in common_questions:
-            button = [InlineKeyboardButton(text=f"{i}. {data[1]}", callback_data=f"common_{data[0]}")]
+            messages += f"{i}. {data[1]} \n\n"
+            button = [InlineKeyboardButton(text=f"Ответ {i}", callback_data=f"common_{data[0]}")]
             buttons.append(button)
             i += 1
 
         buttons.append([InlineKeyboardButton(text=f"Добавить вопрос и ответ {smiles.pencil}", callback_data="add_qa")])
         keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
-        await message.reply("Выберите вопрос:", reply_markup=keyboard)
+        await message.reply(messages, reply_markup=keyboard)
 
     else:
         buttons.append([InlineKeyboardButton(text=f"Добавить вопрос и ответ {smiles.pencil}", callback_data="add_qa")])
