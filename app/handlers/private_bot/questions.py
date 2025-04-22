@@ -1,10 +1,11 @@
 import aiogram
 import time
+from datetime import datetime
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.command import Command
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup,\
-    ReplyKeyboardRemove, KeyboardButton
+    ReplyKeyboardRemove, KeyboardButton, ChatMemberUpdated
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.filters import StateFilter
 from typing import List
@@ -18,13 +19,19 @@ router_questions = Router()
 
 confirmations = [f"Да {smiles.check_mark}", f"Нет, изменить ответ {smiles.cross_mark}"]
 
-# Глобальная переменная для бота
+# Глобальная переменная для ботов
+bot_1: aiogram.Bot
 bot_2: aiogram.Bot
 
 
 def set_public_bot(bot):
     global bot_2
     bot_2 = bot
+
+
+def set_private_bot_2(bot):
+    global bot_1
+    bot_1 = bot
 
 
 def make_row_keyboard(items: List[str]) -> ReplyKeyboardMarkup:
@@ -48,6 +55,40 @@ class CommonQuestions(StatesGroup):
 class DoAnswer(StatesGroup):
     getting_answer = State()
     confirmation = State()
+
+
+@router_questions.my_chat_member()
+async def on_chat_member_update(event: ChatMemberUpdated):
+    bot_id = event.bot.id
+    chat_id = event.chat.id
+    title = event.chat.title or "Без названия"
+    now = datetime.now()
+
+    # Бот был добавлен или получил новые права (например, стал админом)
+    if event.new_chat_member.user.id == bot_id and event.new_chat_member.status in {"member", "administrator"}:
+        existing_chat = db.get_group_chat_by_group_id(chat_id)
+        if existing_chat:
+            # Чат уже есть, обновляем название и joined_at (вдруг переименовали)
+            db.update_group_chat(existing_chat[0], chat_id, title, now)
+        else:
+            # Чат новый — добавляем
+            db.add_group_chat(chat_id, title, now)
+
+        if event.new_chat_member.status == "member":
+            await event.bot.send_message(chat_id, f"Приветствую! Сюда я смогу отправить вопросы пользователей "
+                                                  f"для последующего решения.")
+        if event.new_chat_member.status == "administrator":
+            await event.bot.send_message(chat_id, f"Обновление: повышен до администратора.")
+
+        print(f"✅ Бот добавлен в чат: {title} ({chat_id})")
+
+    # Бот был удалён
+    elif event.old_chat_member.user.id == bot_id and event.new_chat_member.status in {"left", "kicked"}:
+        # Удаляем запись из БД
+        existing_chat = db.get_group_chat_by_group_id(chat_id)
+        if existing_chat:
+            db.delete_group_chat(existing_chat[0])
+        print(f"❌ Бот был удалён из чата: {title} ({chat_id})")
 
 
 # Хэндлер на команду /staffquestions
@@ -78,11 +119,50 @@ async def cmd_get_staff_questions(message: Message, state: FSMContext):
 async def click_answer(callback_query: CallbackQuery, state: FSMContext):
     question_chat_id = callback_query.data.split('_')[1]
 
-    await callback_query.message.answer(f"Напишите ответ на вопрос. Для отмены: /cancel")
+    # Получение списка бесед
+    #0-3 indexes: id, group_id, title, joined_at
+    groups = db.get_all_group_chats()
+    buttons = []
+    if len(groups) != 0:
+        i = 1
+        messages = "Отправьте в доступную беседу на выбор для последующей отправки ботом:\n\n"
+
+        for data in groups:
+            button = [InlineKeyboardButton(text=f"{i}. {data[2]}", callback_data=f"group_{data[0]}")]
+            buttons.append(button)
+            i += 1
+
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await callback_query.message.answer(messages, reply_markup=keyboard)
+
+    else:
+        await message.answer("Нет доступных бесед для отправки.")
+
+    await callback_query.message.answer(f"Так же вы можете написать ответ на вопрос пользователя. Для отмены: /cancel")
 
     await state.update_data(id=question_chat_id)
     # Устанавливаем состояние ожидания ответа на вопрос
     await state.set_state(DoAnswer.getting_answer)
+
+
+@router_questions.callback_query(DoAnswer.getting_answer, F.data.startswith('group_'))
+async def click_send_to_group(callback_query: CallbackQuery, state: FSMContext):
+    id_for_group = callback_query.data.split('_')[1]
+
+    data = await state.get_data()
+    user_chat_id = int(data['id'])
+
+    # chat_id, name, question
+    question_info = db.get_question_info_by_id(user_chat_id)
+
+    # Получаем данные группы
+    # group_id, title, joined_at
+    group_data = db.get_group_chat_by_id(id_for_group)
+
+    await bot_1.send_message(group_data[0], f"Вам был задан вопрос от {question_info[1]}: {question_info[2]}")
+
+    await callback_query.message.answer(f"Сообщение отправлено в беседу. Можете ввести ответ на вопрос пользователя."
+                                        f" Для выхода: /cancel")
 
 
 # message: Message - это и есть ответ на вопрос. Хэндлер сработает в состоянии получения ответа

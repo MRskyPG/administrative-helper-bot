@@ -19,6 +19,14 @@ CREATE TABLE IF NOT EXISTS questions (
     answer VARCHAR(255)
 );
 
+-- Таблица групп, в которых состоит бот
+CREATE TABLE group_chats (
+    id SERIAL PRIMARY KEY,
+    group_id BIGINT,
+    title TEXT NOT NULL DEFAULT 'Без названия',
+    joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Таблица общих вопросов-ответов
 CREATE TABLE IF NOT EXISTS common_questions (
     id SERIAL PRIMARY KEY,

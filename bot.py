@@ -11,7 +11,7 @@ from app.config import bot_token, public_bot_token
 from app.handlers.private_bot.authorization import router_auth, DoAuth, set_bot
 from app.handlers.private_bot.management import router_manage, set_private_bot
 from app.handlers.private_bot.places import router_places
-from app.handlers.private_bot.questions import router_questions, set_public_bot
+from app.handlers.private_bot.questions import router_questions, set_public_bot, set_private_bot_2
 from app.handlers.private_bot.handlers import router, set_commands_list_private
 from app.handlers.public_bot.public_handlers import public_router, set_commands_list_public
 
@@ -59,6 +59,7 @@ public_bot = Bot(token=public_bot_token)
 
 # Установим в глобальные переменные ботов для использования в другом пакете
 set_private_bot(bot)
+set_private_bot_2(bot)
 set_public_bot(public_bot)
 set_bot(bot)
 

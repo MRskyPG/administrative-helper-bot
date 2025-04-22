@@ -273,6 +273,20 @@ def get_question_by_id(id: int) -> str:
         raise ValueError(f"No question found for question ID: {id}")
 
 
+def get_question_info_by_id(id: int):
+    global Conn
+    cursor = Conn.cursor()
+    cursor.execute("SELECT chat_id, name, question FROM questions where id=%s", (id,))
+
+    data = cursor.fetchall()
+    cursor.close()
+
+    if data is not None:
+        return data[0]
+    else:
+        raise ValueError(f"No question found for question ID: {id}")
+
+
 def delete_question_by_id(id: int):
     global Conn
 
@@ -375,6 +389,94 @@ def delete_common_questions_by_id(id: int):
     except psycopg2.Error as e:
         Conn.rollback()
         print(f"[ERROR] delete_common_questions_by_id: {e}")
+    finally:
+        cursor.close()
+
+
+def add_group_chat(group_id: int, title: str, joined_at: datetime):
+    global Conn
+    cursor = Conn.cursor()
+    try:
+        cursor.execute("INSERT INTO group_chats(group_id, title, joined_at) VALUES(%s, %s, %s)", (group_id, title, joined_at, ))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] add_group_chat: {e}")
+    finally:
+        cursor.close()
+
+
+def get_all_group_chats():
+    global Conn
+    cursor = Conn.cursor()
+    try:
+        cursor.execute("SELECT id, group_id, title, joined_at FROM group_chats ORDER BY joined_at DESC")
+        chats = cursor.fetchall()
+        return chats
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] get_all_group_chats: {e}")
+        return []
+    finally:
+        cursor.close()
+
+
+def get_group_chat_by_id(id: int):
+    global Conn
+    cursor = Conn.cursor()
+    try:
+        cursor.execute("SELECT group_id, title, joined_at FROM group_chats WHERE id = %s", (id,))
+        chat = cursor.fetchone()
+        return chat
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] get_group_chat_by_id: {e}")
+        return None
+    finally:
+        cursor.close()
+
+
+def get_group_chat_by_group_id(group_id: int):
+    global Conn
+    cursor = Conn.cursor()
+    try:
+        cursor.execute("SELECT id, group_id, title, joined_at FROM group_chats WHERE group_id = %s", (group_id,))
+        chat = cursor.fetchone()
+        return chat
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] get_group_chat_by_group_id: {e}")
+        return None
+    finally:
+        cursor.close()
+
+
+
+def delete_group_chat(id: int):
+    global Conn
+
+    cursor = Conn.cursor()
+    try:
+        cursor.execute("DELETE FROM group_chats WHERE id=%s", (id,))
+        # Зафиксировать изменение
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] delete_group_chat: {e}")
+    finally:
+        cursor.close()
+
+
+def update_group_chat(id: int, group_id: int, title: str, joined_at: datetime):
+    global Conn
+    cursor = Conn.cursor()
+    try:
+        cursor.execute("UPDATE group_chats SET group_id = %s, title = %s, joined_at = %s WHERE id = %s", (group_id, title, joined_at, id))
+        Conn.commit()
+    except psycopg2.Error as e:
+        Conn.rollback()
+        print(f"[ERROR] update_group_chat: {e}")
     finally:
         cursor.close()
 
