@@ -13,16 +13,16 @@ CREATE TABLE IF NOT EXISTS places (
 -- Таблица вопросов пользователей
 CREATE TABLE IF NOT EXISTS questions (
     id SERIAL PRIMARY KEY,
-    chat_id INTEGER,
-    name VARCHAR(255),
-    question VARCHAR(255),
+    chat_id INTEGER NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    question VARCHAR(255) NOT NULL,
     answer VARCHAR(255)
 );
 
 -- Таблица групп, в которых состоит бот
 CREATE TABLE group_chats (
     id SERIAL PRIMARY KEY,
-    group_id BIGINT,
+    group_id BIGINT NOT NULL,
     title TEXT NOT NULL DEFAULT 'Без названия',
     joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -30,8 +30,8 @@ CREATE TABLE group_chats (
 -- Таблица общих вопросов-ответов
 CREATE TABLE IF NOT EXISTS common_questions (
     id SERIAL PRIMARY KEY,
-    question VARCHAR(255),
-    answer VARCHAR(255)
+    question VARCHAR(255) NOT NULL,
+    answer VARCHAR(255) NOT NULL
 );
 
 -- Таблица пользователей
