@@ -2,7 +2,7 @@ import aiogram
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.filters.command import Command
-from aiogram.types import Message, ReplyKeyboardRemove
+from aiogram.types import Message, ReplyKeyboardRemove, FSInputFile
 from aiogram.fsm.state import StatesGroup, State
 import time
 
@@ -92,7 +92,8 @@ async def enter_password(message: Message, state: FSMContext):
         final_text = start_text + text_about_commands
         await state.clear()
 
-        time.sleep(2)
+        await message.answer_photo(FSInputFile(path="app/images/start_message_private_bot.jpg"))
+        time.sleep(1)
         await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
 
     else:
