@@ -3,7 +3,7 @@ import time
 from aiogram import F, Router
 from aiogram.filters.command import Command
 from aiogram.types import Message, BotCommand,\
-    ReplyKeyboardRemove
+    ReplyKeyboardRemove, FSInputFile
 from aiogram.filters import StateFilter
 from aiogram.fsm.context import FSMContext
 
@@ -70,16 +70,24 @@ async def cmd_start(message: Message, state: FSMContext):
                  f'\n\nСотрудники будут взаимодействовать с вами через другого бота, ' \
                  f'по которому смогут перейти по QR-коду.\n\n'
     final_text = start_text + text_about_commands
+
+    await message.answer_photo(FSInputFile(path="app/images/start_message_private_bot.jpg"))
+
+    time.sleep(0.5)
+
     await message.answer(final_text, reply_markup=ReplyKeyboardRemove())
 
 
 @router.message(StateFilter(None), Command("cancel"))
 async def cmd_cancel_no_state(message: Message, state: FSMContext):
     await state.set_data({})
+
     await message.answer(
         text="Нечего отменять",
         reply_markup=ReplyKeyboardRemove()
     )
+
+    await message.answer_photo(FSInputFile(path="app/images/thinking_man.jpg"))
     time.sleep(1)
     await message.answer(text=text_about_commands)
 
@@ -87,10 +95,13 @@ async def cmd_cancel_no_state(message: Message, state: FSMContext):
 @router.message(Command("cancel"))
 async def cmd_cancel(message: Message, state: FSMContext):
     await state.clear()
+
     await message.answer(
         text="Действие отменено",
         reply_markup=ReplyKeyboardRemove()
     )
+
+    await message.answer_photo(FSInputFile(path="app/images/thinking_man.jpg"))
     time.sleep(1)
     await message.answer(text=text_about_commands)
 

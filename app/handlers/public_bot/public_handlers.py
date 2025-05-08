@@ -3,7 +3,7 @@ import time
 from aiogram import F, Router
 from aiogram.filters.command import Command, CommandObject
 from aiogram.types import Message, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup,\
-    BotCommand, ReplyKeyboardRemove
+    BotCommand, ReplyKeyboardRemove, FSInputFile
 from aiogram.fsm.context import FSMContext
 from aiogram.filters import StateFilter
 from aiogram.fsm.state import StatesGroup, State
@@ -47,11 +47,15 @@ async def public_cmd_start(message: Message):
                  f'\n\nЗдесь Вы можете:' \
                  f'\n\t- Посмотреть информацию о текущем месте О.Е.Аврунева {smiles.walk_man}' \
                  f'\n\t- Ознакомиться с ответами на частозадаваемые вопросы {smiles.computer}' \
-                 f'\n\t- Задать свой вопрос, на который через время Вам придет ответ от О.Е.Аврунева{smiles.pencil}{smiles.letter}\n\n' \
-                f'\n\t- Или спросить умного помощника, если О.Е.Аврунев сейчас не может ответить.'
+                 f'\n\t- Задать свой вопрос, на который через время Вам придет ответ от О.Е.Аврунева{smiles.pencil}{smiles.letter}' \
+                f'\n\t- Или спросить умного помощника, если О.Е.Аврунев сейчас не может ответить.\n\n'
 
 
     final_text = start_text + text_about_commands
+
+    await message.answer_photo(FSInputFile(path="app/images/start_message_public_bot.png"))
+
+    time.sleep(0.5)
 
     await message.answer(text=final_text)
 
@@ -59,6 +63,8 @@ async def public_cmd_start(message: Message):
 # Хэндлер на команду /gpt
 @public_router.message(StateFilter(None), Command("gpt"))
 async def cmd_gpt(message: Message, state: FSMContext):
+    await message.answer_photo(FSInputFile(path="app/images/gpt_public_bot.jpg"))
+    time.sleep(0.5)
     await message.answer("Введите ваш вопрос, который хотите задать. Для отмены - /cancel")
     await state.set_state(AskGPT.waiting_question)
 
