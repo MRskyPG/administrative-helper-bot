@@ -136,7 +136,7 @@ async def click_answer(callback_query: CallbackQuery, state: FSMContext):
         await callback_query.message.answer(messages, reply_markup=keyboard)
 
     else:
-        await message.answer("Нет доступных бесед для отправки.")
+        await callback_query.message.answer("Нет доступных бесед для отправки.")
 
     await callback_query.message.answer(f"Так же вы можете написать ответ на вопрос пользователя. Для отмены: /cancel")
 
